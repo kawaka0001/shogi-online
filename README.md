@@ -74,9 +74,14 @@ npm test
 
 ## GitLab Flow
 
-- `main`: 開発ブランチ
+- `main`: 本番環境（デプロイ用）
+- `development`: 開発統合ブランチ
 - `feature/issue-{number}`: 機能開発ブランチ
-- `production`: 本番デプロイブランチ（後で作成）
+
+開発フロー:
+```
+feature/issue-N → (PR) → development → (リリース時PR) → main
+```
 
 ## リポジトリ
 

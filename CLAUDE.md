@@ -27,10 +27,10 @@
 - 議論が必要な場合はissueコメントで行う
 
 ### 3. GitLab Flow
-- `main`: 開発ブランチ
+- `main`: 本番環境（デプロイ用）
+- `development`: 開発統合ブランチ（ここで開発）
 - `feature/issue-{number}`: 機能開発ブランチ
-- `production`: 本番デプロイブランチ（後で作成）
-- 全ての変更はPR経由
+- 全ての変更はPR経由（feature → development → main）
 
 ### 4. コード品質
 - 必ずTypeScriptで型安全に実装

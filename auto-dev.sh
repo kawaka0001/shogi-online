@@ -18,15 +18,15 @@ fi
 echo "🚀 将棋オンライン対戦 - 完全自動開発システム (GitHub Projects)"
 echo "============================================================"
 
-# mainブランチにいることを確認
+# developmentブランチにいることを確認（GitLab Flow）
 CURRENT_BRANCH=$(git branch --show-current)
-if [ "$CURRENT_BRANCH" != "main" ]; then
-  echo "⚠️  mainブランチに切り替えてください（現在: $CURRENT_BRANCH）"
+if [ "$CURRENT_BRANCH" != "development" ]; then
+  echo "⚠️  developmentブランチに切り替えてください（現在: $CURRENT_BRANCH）"
   exit 1
 fi
 
 # 最新の状態に更新
-git pull origin main
+git pull origin development
 
 while true; do
   echo ""
