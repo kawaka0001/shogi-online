@@ -1,5 +1,12 @@
 import type { Metadata } from "next";
+import { Noto_Serif_JP } from "next/font/google";
 import "./globals.css";
+
+const notoSerifJP = Noto_Serif_JP({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-noto-serif-jp",
+});
 
 export const metadata: Metadata = {
   title: "将棋オンライン対戦",
@@ -13,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body>{children}</body>
+      <body className={notoSerifJP.variable}>{children}</body>
     </html>
   );
 }
