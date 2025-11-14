@@ -1,0 +1,72 @@
+name: 🔍 リサーチ・調査
+description: 技術調査や仕様リサーチのタスク
+title: "[Research] "
+labels: ["research"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## リサーチ・調査テンプレート
+        実装前の調査タスクに使用します。
+        **調査結果はこのissue本文に直接記述します。**
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: 🎯 調査目的
+      description: 何を明らかにするための調査か
+      placeholder: |
+        例: 将棋の正確なルールを調査し、実装に必要な仕様を明確化する
+    validations:
+      required: true
+
+  - type: textarea
+    id: questions
+    attributes:
+      label: ❓ 調査項目
+      description: 明らかにすべき事項
+      value: |
+        - [ ] 調査項目1
+        - [ ] 調査項目2
+        - [ ] 調査項目3
+    validations:
+      required: true
+
+  - type: textarea
+    id: findings
+    attributes:
+      label: 📝 調査結果
+      description: |
+        **この欄に調査結果を記述してください。**
+        実装時に参照されるため、詳しく書いてください。
+      placeholder: |
+        ## 調査結果
+
+        ### 項目1
+        調査して分かったこと...
+
+        ### 項目2
+        ...
+
+        ## 結論
+        実装方針...
+
+        ## 参考資料
+        - [公式ドキュメント](URL)
+        - 参考記事
+    validations:
+      required: false
+
+  - type: textarea
+    id: decision
+    attributes:
+      label: ✅ 決定事項
+      description: この調査の結果として決定された事項
+      placeholder: |
+        - データ構造は○○を採用
+        - ライブラリは○○を使用
+        - 実装方針は○○
+    validations:
+      required: false

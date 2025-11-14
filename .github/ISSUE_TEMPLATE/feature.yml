@@ -1,0 +1,99 @@
+name: 🚀 機能実装
+description: 新機能の実装タスク（1 feature branch単位）
+title: "[Feature] "
+labels: ["feature"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 機能実装テンプレート
+        このissueは1つのfeature branchで完結する粒度で作成してください。
+        **仕様の詳細はこのissue本文に直接記述します。**
+
+  - type: textarea
+    id: overview
+    attributes:
+      label: 📝 機能概要
+      description: この機能が何をするのか、ユーザー視点で簡潔に説明
+      placeholder: |
+        例: 駒の移動（歩・香・桂）
+        ユーザーが歩、香、桂の駒をクリック/タップして、将棋のルールに従って移動できるようにする。
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: ✅ 受け入れ条件（DoD）
+      description: この機能が完成したと言える条件（全てチェックできたら完了）
+      value: |
+        - [ ] 主要機能が動作する
+        - [ ] TypeScriptの型エラーがない（`tsc --noEmit`）
+        - [ ] ビルドが通る（`npm run build`）
+        - [ ] レスポンシブ対応済み
+        - [ ] 関連するissueへのリンクを記載
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: 📋 詳細仕様
+      description: |
+        **この欄に仕様の詳細を記述してください。**
+        実装中に調査した内容もここに追記します。
+        他のissueから参照される場合があるため、できるだけ詳しく書いてください。
+      placeholder: |
+        ## 仕様詳細
+
+        ### 対象の駒
+        - 歩（ふ）：1マス前進のみ
+        - 香（きょう）：縦に何マスでも前進
+        - 桂（けい）：前方の2マス先の左右
+
+        ### UI動作
+        1. 駒をクリック/タップ
+        2. 移動可能なマスをハイライト
+        3. 移動先をクリック/タップ
+        4. 駒が移動する
+
+        ### データ構造
+        ```typescript
+        type Move = {
+          from: Position
+          to: Position
+          piece: PieceType
+        }
+        ```
+
+        ### 参考
+        - ルール詳細は #1 参照
+    validations:
+      required: false
+
+  - type: textarea
+    id: technical
+    attributes:
+      label: 🔧 技術的詳細
+      description: 実装に必要な技術情報や制約
+      placeholder: |
+        - 使用するコンポーネント: `components/board/Board.tsx`
+        - 新規作成する型: `types/shogi.ts` に追加
+        - 依存するissue: #1, #2
+        - 参考コード: （URLやファイルパス）
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 📌 備考
+      description: その他の情報や注意点
+      placeholder: |
+        - このissueは #2 の後に実装する
+        - パフォーマンスに注意
+        - 将来的にアニメーション追加予定
+    validations:
+      required: false
