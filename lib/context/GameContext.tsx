@@ -11,6 +11,7 @@
 import React, { createContext, useContext, useReducer, useCallback } from 'react';
 import type { GameState, Position, Move, PieceType } from '@/types/shogi';
 import { createInitialGameState } from '../game/initial-state';
+import { getValidMoves } from '../game/rules';
 
 // ========================================
 // Action Types
@@ -56,15 +57,16 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       // 自分の駒を選択した場合
       if (piece && piece.owner === state.currentTurn) {
-        // TODO: 合法手を計算（#8, #9, #10で実装）
+        // 合法手を計算 (#7, #8, #9, #10)
+        const validMoves = getValidMoves(state.board, position, piece);
         return {
           ...state,
           selectedPosition: position,
-          validMoves: [], // 後で実装
+          validMoves,
         };
       }
 
-      // 選択解除
+      // 空マスや相手の駒をクリック → 選択解除
       return {
         ...state,
         selectedPosition: null,
