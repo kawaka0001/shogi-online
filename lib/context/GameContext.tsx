@@ -11,7 +11,7 @@
 import React, { createContext, useContext, useReducer, useCallback } from 'react';
 import type { GameState, Position, Move, PieceType } from '@/types/shogi';
 import { createInitialGameState } from '../game/initial-state';
-import { getValidMoves } from '../game/rules';
+import { getValidMoves, isInCheck } from '../game/rules';
 
 // ========================================
 // Action Types
@@ -114,6 +114,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             timestamp: new Date(),
           };
 
+          // 王手チェック (#16)
+          const inCheck = isInCheck(newBoard, nextTurn);
+          const newGameStatus = inCheck ? 'check' : 'playing';
+
           return {
             ...state,
             board: newBoard,
@@ -123,6 +127,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             selectedPosition: null,
             validMoves: [],
             lastMove: move,
+            isCheck: inCheck,
+            gameStatus: newGameStatus,
           };
         }
       }
@@ -198,6 +204,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         timestamp: new Date(),
       };
 
+      // 王手チェック (#16)
+      const inCheck = isInCheck(newBoard, nextTurn);
+      const newGameStatus = inCheck ? 'check' : 'playing';
+
       return {
         ...state,
         board: newBoard,
@@ -207,6 +217,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         selectedPosition: null,
         validMoves: [],
         lastMove: move,
+        isCheck: inCheck,
+        gameStatus: newGameStatus,
       };
     }
 

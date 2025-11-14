@@ -552,3 +552,135 @@ export function isValidMove(
 
   return { isValid: true };
 }
+
+// ========================================
+// 王手判定 (#16)
+// ========================================
+
+/**
+ * 指定されたプレイヤーの玉の位置を探す
+ * 詳細: #16
+ *
+ * @param board - 現在の盤面
+ * @param player - プレイヤー
+ * @returns 玉の位置（見つからない場合はnull）
+ */
+export function findKingPosition(board: Board, player: Player): Position | null {
+  for (let rank = 0; rank < 9; rank++) {
+    for (let file = 0; file < 9; file++) {
+      const piece = board[rank][file];
+      if (piece && piece.type === 'king' && piece.owner === player) {
+        return { rank, file };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * 指定された位置が敵の駒に攻撃されているかチェック
+ * 詳細: #16
+ *
+ * @param board - 現在の盤面
+ * @param position - チェックする位置
+ * @param player - その位置を守るプレイヤー
+ * @returns 攻撃されている場合 true
+ */
+export function isPositionUnderAttack(
+  board: Board,
+  position: Position,
+  player: Player
+): boolean {
+  const opponent: Player = player === 'black' ? 'white' : 'black';
+
+  // 全ての敵の駒をチェック
+  for (let rank = 0; rank < 9; rank++) {
+    for (let file = 0; file < 9; file++) {
+      const piece = board[rank][file];
+      if (piece && piece.owner === opponent) {
+        const enemyPosition: Position = { rank, file };
+        const moves = getValidMoves(board, enemyPosition, piece);
+
+        // この敵の駒が指定された位置を攻撃できるかチェック
+        const canAttack = moves.some(
+          (move) => move.rank === position.rank && move.file === position.file
+        );
+
+        if (canAttack) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * 指定されたプレイヤーが王手されているかチェック
+ * 詳細: #16
+ *
+ * 王手の定義: 相手の駒が次の手で玉を取れる状態
+ *
+ * @param board - 現在の盤面
+ * @param player - チェックするプレイヤー
+ * @returns 王手されている場合 true
+ */
+export function isInCheck(board: Board, player: Player): boolean {
+  const kingPos = findKingPosition(board, player);
+  if (!kingPos) return false;
+
+  return isPositionUnderAttack(board, kingPos, player);
+}
+
+/**
+ * 指定されたプレイヤーが詰んでいるかチェック
+ * 詳細: #17
+ *
+ * 詰みの条件:
+ * 1. 王手されている
+ * 2. 玉が逃げられない
+ * 3. 王手している駒を取れない
+ * 4. 王手を他の駒で遮れない
+ *
+ * @param board - 現在の盤面
+ * @param player - チェックするプレイヤー
+ * @returns 詰んでいる場合 true
+ */
+export function isCheckmate(board: Board, player: Player): boolean {
+  // まず王手されているかチェック
+  if (!isInCheck(board, player)) {
+    return false;
+  }
+
+  // プレイヤーの全ての駒をチェック
+  for (let rank = 0; rank < 9; rank++) {
+    for (let file = 0; file < 9; file++) {
+      const piece = board[rank][file];
+      if (piece && piece.owner === player) {
+        const from: Position = { rank, file };
+        const moves = getValidMoves(board, from, piece);
+
+        // 各移動可能な手をシミュレート
+        for (const to of moves) {
+          // 一時的に盤面をコピーして手を試す
+          const testBoard = board.map(row => [...row]);
+          const capturedPiece = testBoard[to.rank][to.file];
+
+          // 駒を移動
+          testBoard[to.rank][to.file] = piece;
+          testBoard[from.rank][from.file] = null;
+
+          // この手で王手が解除されるかチェック
+          if (!isInCheck(testBoard, player)) {
+            // 王手を回避できる手が見つかった
+            return false;
+          }
+        }
+      }
+    }
+  }
+
+  // 全ての手を試しても王手を回避できない = 詰み
+  return true;
+}
