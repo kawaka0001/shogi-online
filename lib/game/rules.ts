@@ -319,43 +319,146 @@ export function getBishopMoves(
 /**
  * 玉の移動可能な位置を取得
  * 全8方向に1マスずつ移動可能
- * TODO: #9で実装
+ * 詳細: #9, #4
  */
 export function getKingMoves(
   board: Board,
   from: Position,
   piece: Piece
 ): Position[] {
-  // TODO: #9で実装予定
-  return [];
+  const moves: Position[] = [];
+
+  // 8方向の相対位置
+  const directions = [
+    { rankDelta: -1, fileDelta: 0 },  // 上
+    { rankDelta: -1, fileDelta: 1 },  // 右上
+    { rankDelta: 0, fileDelta: 1 },   // 右
+    { rankDelta: 1, fileDelta: 1 },   // 右下
+    { rankDelta: 1, fileDelta: 0 },   // 下
+    { rankDelta: 1, fileDelta: -1 },  // 左下
+    { rankDelta: 0, fileDelta: -1 },  // 左
+    { rankDelta: -1, fileDelta: -1 }, // 左上
+  ];
+
+  for (const dir of directions) {
+    const to: Position = {
+      rank: from.rank + dir.rankDelta,
+      file: from.file + dir.fileDelta,
+    };
+
+    if (isValidPosition(to)) {
+      const targetPiece = board[to.rank][to.file];
+      if (!targetPiece || targetPiece.owner !== piece.owner) {
+        moves.push(to);
+      }
+    }
+  }
+
+  return moves;
 }
 
 /**
  * 金の移動可能な位置を取得
  * 前方3方向・左右・真後ろの計6方向に1マスずつ移動可能
- * TODO: #9で実装
+ * （斜め後ろ2方向には移動不可）
+ * 詳細: #9, #4
  */
 export function getGoldMoves(
   board: Board,
   from: Position,
   piece: Piece
 ): Position[] {
-  // TODO: #9で実装予定
-  return [];
+  const moves: Position[] = [];
+
+  // 金の移動方向（先手基準）
+  // 先手: 上、右上、右、下、左、左上
+  // 後手: 下、右下、右、上、左、右上
+  const directionsBlack = [
+    { rankDelta: -1, fileDelta: 0 },  // 上（前）
+    { rankDelta: -1, fileDelta: 1 },  // 右上（右前）
+    { rankDelta: 0, fileDelta: 1 },   // 右
+    { rankDelta: 1, fileDelta: 0 },   // 下（後ろ）
+    { rankDelta: 0, fileDelta: -1 },  // 左
+    { rankDelta: -1, fileDelta: -1 }, // 左上（左前）
+  ];
+
+  const directionsWhite = [
+    { rankDelta: 1, fileDelta: 0 },   // 下（前）
+    { rankDelta: 1, fileDelta: 1 },   // 右下（右前）
+    { rankDelta: 0, fileDelta: 1 },   // 右
+    { rankDelta: -1, fileDelta: 0 },  // 上（後ろ）
+    { rankDelta: 0, fileDelta: -1 },  // 左
+    { rankDelta: 1, fileDelta: -1 },  // 左下（左前）
+  ];
+
+  const directions = piece.owner === 'black' ? directionsBlack : directionsWhite;
+
+  for (const dir of directions) {
+    const to: Position = {
+      rank: from.rank + dir.rankDelta,
+      file: from.file + dir.fileDelta,
+    };
+
+    if (isValidPosition(to)) {
+      const targetPiece = board[to.rank][to.file];
+      if (!targetPiece || targetPiece.owner !== piece.owner) {
+        moves.push(to);
+      }
+    }
+  }
+
+  return moves;
 }
 
 /**
  * 銀の移動可能な位置を取得
  * 斜め4方向・真前の計5方向に1マスずつ移動可能
- * TODO: #9で実装
+ * （左右・真後ろには移動不可）
+ * 詳細: #9, #4
  */
 export function getSilverMoves(
   board: Board,
   from: Position,
   piece: Piece
 ): Position[] {
-  // TODO: #9で実装予定
-  return [];
+  const moves: Position[] = [];
+
+  // 銀の移動方向（先手基準）
+  // 先手: 上、右上、右下、左下、左上
+  // 後手: 下、右下、右上、左上、左下
+  const directionsBlack = [
+    { rankDelta: -1, fileDelta: 0 },  // 上（前）
+    { rankDelta: -1, fileDelta: 1 },  // 右上
+    { rankDelta: 1, fileDelta: 1 },   // 右下
+    { rankDelta: 1, fileDelta: -1 },  // 左下
+    { rankDelta: -1, fileDelta: -1 }, // 左上
+  ];
+
+  const directionsWhite = [
+    { rankDelta: 1, fileDelta: 0 },   // 下（前）
+    { rankDelta: 1, fileDelta: 1 },   // 右下
+    { rankDelta: -1, fileDelta: 1 },  // 右上
+    { rankDelta: -1, fileDelta: -1 }, // 左上
+    { rankDelta: 1, fileDelta: -1 },  // 左下
+  ];
+
+  const directions = piece.owner === 'black' ? directionsBlack : directionsWhite;
+
+  for (const dir of directions) {
+    const to: Position = {
+      rank: from.rank + dir.rankDelta,
+      file: from.file + dir.fileDelta,
+    };
+
+    if (isValidPosition(to)) {
+      const targetPiece = board[to.rank][to.file];
+      if (!targetPiece || targetPiece.owner !== piece.owner) {
+        moves.push(to);
+      }
+    }
+  }
+
+  return moves;
 }
 
 // ========================================
