@@ -1,0 +1,23 @@
+# Claude Code Settings for Auto-Development
+
+hooks:
+  SessionStart:
+    command: |
+      CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "main")
+      if [ "$CURRENT_BRANCH" = "main" ]; then
+        ISSUE=$(gh issue list --state open --json number,title,labels --limit 1 2>/dev/null)
+        if [ -n "$ISSUE" ]; then
+          echo "$ISSUE" | jq -r '.[0] | "📋 次のタスク: Issue #\(.number) - \(.title)\n\nラベル: \(.labels | map(.name) | join(", "))"'
+        else
+          echo "✅ すべてのissueが完了しています"
+        fi
+      else
+        echo "🔧 現在のブランチ: $CURRENT_BRANCH"
+      fi
+
+  PostToolUse:
+    command: |
+      # PRが作成されたかチェック
+      if echo "$CLAUDE_TOOL_OUTPUT" | grep -q "https://github.com/.*/pull/"; then
+        echo "✨ PR作成完了！レビュー後にマージしてください"
+      fi
