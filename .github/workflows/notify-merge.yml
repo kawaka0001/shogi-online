@@ -1,0 +1,48 @@
+name: 📢 マージ完了通知
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  notify-next-task:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 次のタスクを取得
+        id: next-task
+        run: |
+          NEXT_TASK=$(gh project item-list 1 --owner kawaka0001 --format json --limit 100 | \
+            jq -r '.items[] | select(.status == "Todo") | "Issue #\(.content.number): \(.content.title)"' | head -1)
+          echo "task=$NEXT_TASK" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Issue更新（完了コメント）
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const issueNumbers = context.payload.pull_request.body.match(/#(\d+)/g);
+
+            if (issueNumbers) {
+              for (const issue of issueNumbers) {
+                const num = issue.replace('#', '');
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: parseInt(num),
+                  body: `✅ PR #${prNumber} がマージされました\n\n次のタスクへ進んでください： ${{ steps.next-task.outputs.task }}`
+                });
+              }
+            }
+
+      - name: GitHub Projectsステータス更新
+        run: |
+          echo "📊 GitHub Projectsのステータスは自動的に更新されます"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

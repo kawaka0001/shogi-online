@@ -65,10 +65,14 @@ $ISSUE_BODY
 2. 上記の要件を実装
 3. テストを書いて実行
 4. コードをcommit
-5. PRを作成（タイトル: \"$ISSUE_TITLE\"）
+5. PRを作成（タイトル: \"$ISSUE_TITLE\"）し、自動マージを有効化
 6. 完了したら \"TASK_COMPLETE\" と出力
 
-GitLab Flowに従って開発してください。
+## 重要
+- PRには必ず「Closes #$ISSUE_NUMBER」を含める
+- GitHub Actionsが自動レビュー・自動マージします
+- GitLab Flowに従って開発してください
+
 PR作成後、このスクリプトに制御を戻してください。"
 
   if [ "$DRY_RUN" = true ]; then
@@ -95,27 +99,29 @@ PR作成後、このスクリプトに制御を戻してください。"
   echo ""
 
   # PRのURLを取得
-  PR_URL=$(gh pr list --head "feature/issue-$ISSUE_NUMBER" --json url --jq '.[0].url' 2>/dev/null || echo "")
+  PR_URL=$(gh pr list --head "feature/issue-$ISSUE_NUMBER" --json url,number --jq '.[0]' 2>/dev/null || echo "")
 
   if [ -n "$PR_URL" ]; then
-    echo "📝 PR: $PR_URL"
+    PR_NUMBER=$(echo "$PR_URL" | jq -r '.number')
+    PR_LINK=$(echo "$PR_URL" | jq -r '.url')
+
+    echo "📝 PR: $PR_LINK"
     echo ""
-    echo "👀 PRをレビューしてください"
+    echo "🤖 GitHub Actionsが自動レビュー・自動マージを実行中..."
     echo ""
     echo "オプション:"
-    echo "  1. PRを確認してマージ → Enterキー（次のissueへ）"
-    echo "  2. 自動マージ → 'a' + Enter"
+    echo "  1. 自動マージを待つ → Enterキー（推奨）"
+    echo "  2. 今すぐマージ → 'm' + Enter"
     echo "  3. スキップ → 's' + Enter"
     echo "  4. 終了 → 'q' + Enter"
     echo ""
     read -p "選択: " choice
 
     case $choice in
-      a|A)
-        echo "🔄 自動マージ中..."
-        gh pr merge "$PR_URL" --merge --delete-branch
+      m|M)
+        echo "🔄 即座にマージ中..."
+        gh pr merge "$PR_NUMBER" --merge --delete-branch --admin
         git pull origin main
-        gh issue close "$ISSUE_NUMBER" --comment "PR #$(gh pr view $PR_URL --json number --jq '.number') でマージ完了"
         echo "✅ マージ完了"
         echo "📊 GitHub Projectsのステータスは自動的に更新されます"
         ;;
@@ -127,10 +133,39 @@ PR作成後、このスクリプトに制御を戻してください。"
         exit 0
         ;;
       *)
-        echo "⏸️  手動確認モード。マージ完了後、Enterキーで続行..."
-        read
-        git pull origin main
-        echo "📊 GitHub Projectsのステータスは自動的に更新されます"
+        echo "⏳ 自動マージを待機中..."
+        echo "   GitHub Actionsのチェックが完了すると自動的にマージされます"
+        echo ""
+
+        # 自動マージ完了を待つ（最大5分）
+        WAIT_COUNT=0
+        MAX_WAIT=60
+
+        while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
+          PR_STATE=$(gh pr view "$PR_NUMBER" --json state,merged --jq '.merged')
+
+          if [ "$PR_STATE" = "true" ]; then
+            echo ""
+            echo "✅ 自動マージ完了！"
+            git pull origin main
+            echo "📊 GitHub Projectsのステータスは自動的に更新されます"
+            break
+          fi
+
+          echo -n "."
+          sleep 5
+          WAIT_COUNT=$((WAIT_COUNT + 1))
+        done
+
+        if [ $WAIT_COUNT -ge $MAX_WAIT ]; then
+          echo ""
+          echo "⏱️  タイムアウト: 自動マージに時間がかかっています"
+          echo "   GitHub上で確認してください: $PR_LINK"
+          echo ""
+          echo "Enterキーで続行（手動でマージ完了後）..."
+          read
+          git pull origin main
+        fi
         ;;
     esac
   else

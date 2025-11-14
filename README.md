@@ -4,7 +4,7 @@
 
 ## 🤖 完全自動開発システム
 
-このプロジェクトはClaude Codeを使った完全自動開発の実験です。
+このプロジェクトはClaude Code + GitHub Actionsを使った自動開発の実験です。
 
 ### 使い方
 
@@ -16,20 +16,38 @@
 ./auto-dev.sh --dry-run
 ```
 
-### ワークフロー
+### ワークフロー（ほぼ完全自動）
 
-1. **Issue作成**: GitHub Issuesでタスクを管理
-2. **自動実装**: `auto-dev.sh`が自動的に次のissueを取得し、Claude Codeに実装指示
+1. **Issue管理**: GitHub Projects でタスク管理（24件のissue）
+2. **自動実装**: `auto-dev.sh` が次のTodoタスクを取得し、Claude Codeに実装指示
 3. **新セッション**: 各issue毎に新しいClaude Codeセッション = クリーンなコンテキスト
 4. **PR作成**: 実装完了後、自動的にPR作成
-5. **レビュー**: 人間がPRをレビュー・マージ
-6. **ループ**: 次のissueへ自動的に進む
+5. **自動レビュー**: GitHub Actionsが品質チェック（ビルド・型チェック・Lint）
+6. **自動マージ**: チェック成功 → 自動承認 → 自動マージ
+7. **ループ**: 次のissueへ自動的に進む
+
+### あなたがすること
+
+**最小限の操作:**
+- `./auto-dev.sh` を実行
+- 各issue完了後、Enterキーを押すだけ（自動マージを待機）
+- 問題があれば手動介入
+
+**完全放置は不可:** 各issue完了ごとにEnterキー押下が必要です。
 
 ### Claude Code Slash Commands
 
 - `/start` - 次のissueを実装開始
-- `/next` - 次の3つのissueを表示
-- `/status` - プロジェクトの現状確認
+- `/next` - 次の5つのTodoタスクを表示
+- `/status` - プロジェクトの現状確認（GitHub Projects連携）
+
+### GitHub Actions（自動化）
+
+- **自動レビュー**: PR作成時に品質チェック実行
+- **自動マージ**: チェック成功 → 自動承認 → 自動マージ
+- **通知**: マージ完了後、次のタスクを通知
+
+詳細: `.github/workflows/`
 
 ## 技術スタック
 
