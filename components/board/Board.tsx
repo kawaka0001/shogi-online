@@ -1,6 +1,6 @@
 /**
  * 将棋盤コンポーネント
- * 詳細: #5, #6, #7
+ * 詳細: #5, #6, #7, #17
  */
 
 'use client';
@@ -9,13 +9,14 @@ import React from 'react';
 import { Square } from './Square';
 import { useGame } from '@/lib/context/GameContext';
 import { BOARD_SIZE } from '@/lib/game/constants';
+import { GameResult } from '@/components/game/GameResult';
 
 /**
  * 将棋盤コンポーネント
  * GameContextから状態を取得し、Squareコンポーネントを使って盤面を表示
  */
 export function Board() {
-  const { gameState, selectSquare } = useGame();
+  const { gameState, selectSquare, newGame } = useGame();
 
   // 筋のラベル（9-1）
   const getFileLabel = (file: number): string => String(9 - file);
@@ -120,6 +121,13 @@ export function Board() {
       <div className="text-sm sm:text-base font-semibold text-gray-700">
         先手
       </div>
+
+      {/* ゲーム結果モーダル (#17) */}
+      <GameResult
+        gameStatus={gameState.gameStatus}
+        currentTurn={gameState.currentTurn}
+        onNewGame={newGame}
+      />
     </div>
   );
 }
