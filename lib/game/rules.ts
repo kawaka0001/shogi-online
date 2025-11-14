@@ -1,10 +1,168 @@
 /**
  * 将棋の駒の移動ルール
- * 詳細: #4, #10
+ * 詳細: #4, #8, #10
  */
 
 import type { Board, Piece, Player, Position } from '@/types/shogi';
 import { isValidPosition } from '../utils/position';
+
+// ========================================
+// 型定義
+// ========================================
+
+/**
+ * 移動可能な位置のリスト
+ */
+export type ValidMoves = Position[];
+
+/**
+ * 移動判定結果
+ */
+export type MoveValidationResult = {
+  isValid: boolean;
+  reason?: string;
+};
+
+// ========================================
+// ヘルパー関数
+// ========================================
+
+/**
+ * 指定した位置に駒が存在するか確認
+ */
+function hasPiece(board: Board, position: Position): boolean {
+  if (!isValidPosition(position)) return false;
+  return board[position.rank][position.file] !== null;
+}
+
+/**
+ * 指定した位置の駒が味方かどうか確認
+ */
+function isFriendlyPiece(board: Board, position: Position, player: Player): boolean {
+  if (!isValidPosition(position)) return false;
+  const piece = board[position.rank][position.file];
+  return piece !== null && piece.owner === player;
+}
+
+/**
+ * 指定した位置の駒が敵かどうか確認
+ */
+function isEnemyPiece(board: Board, position: Position, player: Player): boolean {
+  if (!isValidPosition(position)) return false;
+  const piece = board[position.rank][position.file];
+  return piece !== null && piece.owner !== player;
+}
+
+/**
+ * プレイヤーの前進方向を取得
+ * 先手(black): -1 (上に進む、rankが減る)
+ * 後手(white): +1 (下に進む、rankが増える)
+ */
+function getForwardDirection(player: Player): number {
+  return player === 'black' ? -1 : 1;
+}
+
+// ========================================
+// 歩・香・桂の移動ルール実装 (#8)
+// ========================================
+
+/**
+ * 歩（ふ）の移動可能マスを取得
+ * ルール: 1マス前進のみ
+ * 詳細: #4
+ */
+export function getPawnMoves(
+  board: Board,
+  from: Position,
+  piece: Piece
+): ValidMoves {
+  const moves: ValidMoves = [];
+  const forward = getForwardDirection(piece.owner);
+
+  // 1マス前進
+  const targetRank = from.rank + forward;
+  const targetFile = from.file;
+  const target: Position = { rank: targetRank, file: targetFile };
+
+  // 盤面内 && 駒がない または 敵の駒がある
+  if (isValidPosition(target) && !isFriendlyPiece(board, target, piece.owner)) {
+    moves.push(target);
+  }
+
+  return moves;
+}
+
+/**
+ * 香（きょう）の移動可能マスを取得
+ * ルール: 縦に何マスでも前進可能、他の駒を飛び越えられない
+ * 詳細: #4
+ */
+export function getLanceMoves(
+  board: Board,
+  from: Position,
+  piece: Piece
+): ValidMoves {
+  const moves: ValidMoves = [];
+  const forward = getForwardDirection(piece.owner);
+
+  // 前方に進めるだけ進む
+  let currentRank = from.rank + forward;
+  const currentFile = from.file;
+
+  while (true) {
+    const target: Position = { rank: currentRank, file: currentFile };
+
+    // 盤外に出たら終了
+    if (!isValidPosition(target)) break;
+
+    // 味方の駒があったら終了
+    if (isFriendlyPiece(board, target, piece.owner)) break;
+
+    // 移動可能マスに追加
+    moves.push(target);
+
+    // 敵の駒があったらそこで終了（取れるが飛び越えられない）
+    if (isEnemyPiece(board, target, piece.owner)) break;
+
+    // 次のマスへ
+    currentRank += forward;
+  }
+
+  return moves;
+}
+
+/**
+ * 桂（けい）の移動可能マスを取得
+ * ルール: 前方2マス先の左右斜め、他の駒を飛び越えられる
+ * 詳細: #4
+ */
+export function getKnightMoves(
+  board: Board,
+  from: Position,
+  piece: Piece
+): ValidMoves {
+  const moves: ValidMoves = [];
+  const forward = getForwardDirection(piece.owner);
+
+  // 前方2マス先の左右
+  const targetRank = from.rank + forward * 2;
+  const leftFile = from.file - 1;
+  const rightFile = from.file + 1;
+
+  const targets: Position[] = [
+    { rank: targetRank, file: leftFile },   // 左
+    { rank: targetRank, file: rightFile },  // 右
+  ];
+
+  for (const target of targets) {
+    // 盤面内 && 味方の駒がない
+    if (isValidPosition(target) && !isFriendlyPiece(board, target, piece.owner)) {
+      moves.push(target);
+    }
+  }
+
+  return moves;
+}
 
 // ========================================
 // 飛車・角の移動ルール実装 (#10)
@@ -34,7 +192,7 @@ export function getRookMoves(
       { rankDelta: -1, fileDelta: -1 }, // 左上
       { rankDelta: -1, fileDelta: 1 },  // 右上
       { rankDelta: 1, fileDelta: -1 },  // 左下
-      { rankDelta: 1, fileDelta: 1 },   // 右下
+      { rankDelta: 1, fileDelta: 1 },   // 右上
     ];
 
     // 斜め1マスのみ
@@ -200,48 +358,6 @@ export function getSilverMoves(
   return [];
 }
 
-/**
- * 桂馬の移動可能な位置を取得
- * 前方2マス先の左右斜め（他の駒を飛び越えられる）
- * TODO: #8で実装
- */
-export function getKnightMoves(
-  board: Board,
-  from: Position,
-  piece: Piece
-): Position[] {
-  // TODO: #8で実装予定
-  return [];
-}
-
-/**
- * 香車の移動可能な位置を取得
- * 真前に何マスでも直進可能（他の駒を飛び越えられない）
- * TODO: #8で実装
- */
-export function getLanceMoves(
-  board: Board,
-  from: Position,
-  piece: Piece
-): Position[] {
-  // TODO: #8で実装予定
-  return [];
-}
-
-/**
- * 歩兵の移動可能な位置を取得
- * 真前に1マスのみ
- * TODO: #8で実装
- */
-export function getPawnMoves(
-  board: Board,
-  from: Position,
-  piece: Piece
-): Position[] {
-  // TODO: #8で実装予定
-  return [];
-}
-
 // ========================================
 // 統合関数
 // ========================================
@@ -279,4 +395,57 @@ export function getValidMoves(
     default:
       return [];
   }
+}
+
+/**
+ * 指定した移動が合法かどうかを判定
+ *
+ * @param board - 現在の盤面
+ * @param from - 移動元の位置
+ * @param to - 移動先の位置
+ * @param player - プレイヤー
+ * @returns 移動の有効性
+ */
+export function isValidMove(
+  board: Board,
+  from: Position,
+  to: Position,
+  player: Player
+): MoveValidationResult {
+  // 移動元に駒が存在するか確認
+  if (!hasPiece(board, from)) {
+    return { isValid: false, reason: '移動元に駒が存在しません' };
+  }
+
+  const piece = board[from.rank][from.file];
+  if (!piece) {
+    return { isValid: false, reason: '移動元に駒が存在しません' };
+  }
+
+  // 自分の駒かどうか確認
+  if (piece.owner !== player) {
+    return { isValid: false, reason: '自分の駒ではありません' };
+  }
+
+  // 移動先が盤面内か確認
+  if (!isValidPosition(to)) {
+    return { isValid: false, reason: '移動先が盤面外です' };
+  }
+
+  // 移動先に味方の駒がないか確認
+  if (isFriendlyPiece(board, to, player)) {
+    return { isValid: false, reason: '移動先に味方の駒が存在します' };
+  }
+
+  // 駒の移動ルールに従って移動可能か確認
+  const validMoves = getValidMoves(board, from, piece);
+  const isInValidMoves = validMoves.some(
+    (move) => move.rank === to.rank && move.file === to.file
+  );
+
+  if (!isInValidMoves) {
+    return { isValid: false, reason: 'その駒はそこに移動できません' };
+  }
+
+  return { isValid: true };
 }
