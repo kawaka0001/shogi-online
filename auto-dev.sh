@@ -1,9 +1,13 @@
 #!/bin/bash
 
-# 完全自動開発スクリプト
+# 完全自動開発スクリプト（GitHub Projects対応）
 # Usage: ./auto-dev.sh [--dry-run]
 
 set -e
+
+# GitHub Project設定
+PROJECT_NUMBER=1
+PROJECT_OWNER="kawaka0001"
 
 DRY_RUN=false
 if [ "$1" = "--dry-run" ]; then
@@ -11,8 +15,8 @@ if [ "$1" = "--dry-run" ]; then
   echo "🧪 DRY RUN モード"
 fi
 
-echo "🚀 将棋オンライン対戦 - 完全自動開発システム"
-echo "================================================"
+echo "🚀 将棋オンライン対戦 - 完全自動開発システム (GitHub Projects)"
+echo "============================================================"
 
 # mainブランチにいることを確認
 CURRENT_BRANCH=$(git branch --show-current)
@@ -26,20 +30,23 @@ git pull origin main
 
 while true; do
   echo ""
-  echo "📋 次のタスクを確認中..."
+  echo "📋 次のタスクを確認中（GitHub Projects）..."
 
-  # 次のissueを取得
-  ISSUE_JSON=$(gh issue list --state open --json number,title,body,labels --limit 1)
+  # GitHub Projectsから"Todo"ステータスのタスクを取得
+  PROJECT_ITEMS=$(gh project item-list "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --format json --limit 100)
 
-  # issueが存在するかチェック
-  if [ "$ISSUE_JSON" = "[]" ] || [ -z "$ISSUE_JSON" ]; then
-    echo "✅ すべてのissueが完了しました！"
+  # "Todo"ステータスの最初のアイテムを取得
+  TASK_JSON=$(echo "$PROJECT_ITEMS" | jq '.items[] | select(.status == "Todo") | .content' | jq -s '.[0]')
+
+  # タスクが存在するかチェック
+  if [ "$TASK_JSON" = "null" ] || [ -z "$TASK_JSON" ]; then
+    echo "✅ すべてのタスクが完了しました！"
     break
   fi
 
-  ISSUE_NUMBER=$(echo "$ISSUE_JSON" | jq -r '.[0].number')
-  ISSUE_TITLE=$(echo "$ISSUE_JSON" | jq -r '.[0].title')
-  ISSUE_BODY=$(echo "$ISSUE_JSON" | jq -r '.[0].body')
+  ISSUE_NUMBER=$(echo "$TASK_JSON" | jq -r '.number')
+  ISSUE_TITLE=$(echo "$TASK_JSON" | jq -r '.title')
+  ISSUE_BODY=$(echo "$TASK_JSON" | jq -r '.body')
 
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -110,6 +117,7 @@ PR作成後、このスクリプトに制御を戻してください。"
         git pull origin main
         gh issue close "$ISSUE_NUMBER" --comment "PR #$(gh pr view $PR_URL --json number --jq '.number') でマージ完了"
         echo "✅ マージ完了"
+        echo "📊 GitHub Projectsのステータスは自動的に更新されます"
         ;;
       s|S)
         echo "⏭️  スキップ"
@@ -122,6 +130,7 @@ PR作成後、このスクリプトに制御を戻してください。"
         echo "⏸️  手動確認モード。マージ完了後、Enterキーで続行..."
         read
         git pull origin main
+        echo "📊 GitHub Projectsのステータスは自動的に更新されます"
         ;;
     esac
   else

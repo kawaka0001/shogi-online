@@ -1,15 +1,18 @@
-# Claude Code Settings for Auto-Development
+# Claude Code Settings for Auto-Development (GitHub Projects)
 
 hooks:
   SessionStart:
     command: |
       CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "main")
       if [ "$CURRENT_BRANCH" = "main" ]; then
-        ISSUE=$(gh issue list --state open --json number,title,labels --limit 1 2>/dev/null)
-        if [ -n "$ISSUE" ]; then
-          echo "$ISSUE" | jq -r '.[0] | "📋 次のタスク: Issue #\(.number) - \(.title)\n\nラベル: \(.labels | map(.name) | join(", "))"'
+        # GitHub Projectsから次のタスクを取得
+        NEXT_TASK=$(gh project item-list 1 --owner kawaka0001 --format json --limit 100 2>/dev/null | \
+          jq -r '.items[] | select(.status == "Todo") | "📋 次のタスク: Issue #\(.content.number) - \(.content.title)\n\nステータス: \(.status) | ラベル: \(.labels | join(", "))"' | head -1)
+
+        if [ -n "$NEXT_TASK" ]; then
+          echo "$NEXT_TASK"
         else
-          echo "✅ すべてのissueが完了しています"
+          echo "✅ すべてのタスクが完了しています"
         fi
       else
         echo "🔧 現在のブランチ: $CURRENT_BRANCH"
@@ -20,4 +23,5 @@ hooks:
       # PRが作成されたかチェック
       if echo "$CLAUDE_TOOL_OUTPUT" | grep -q "https://github.com/.*/pull/"; then
         echo "✨ PR作成完了！レビュー後にマージしてください"
+        echo "📊 GitHub Projectsのステータスは自動更新されます"
       fi
