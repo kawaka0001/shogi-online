@@ -115,7 +115,7 @@ export class MatchmakingManager {
         username: this.username,
         status: 'searching',
         skillLevel: this.skillLevel,
-        joinedAt: (this.myJoinedAt = new Date().toISOString()),
+        joinedAt: new Date().toISOString(),
       };
 
       console.log('[MatchmakingManager] Presence送信:', presence);
@@ -322,10 +322,10 @@ export class MatchmakingManager {
       console.log('[MatchmakingManager] マッチング相手決定:', opponent);
 
       // 自分が後から参加した場合は相手がゲームを作るまで待つ
-      const myJoinedAtTime = new Date(this.myJoinedAt).getTime();
-      const opponentJoinedAtTime = new Date(opponent.joinedAt).getTime();
+      const myJoinedAt = new Date().getTime();
+      const opponentJoinedAt = new Date(opponent.joinedAt).getTime();
 
-      if (myJoinedAtTime > opponentJoinedAtTime) {
+      if (myJoinedAt > opponentJoinedAt) {
         console.log(
           '[MatchmakingManager] 相手が先に参加しているため、相手がゲームを作成するまで待機'
         );
@@ -367,7 +367,7 @@ export class MatchmakingManager {
           black_player_id: blackPlayerId,
           white_player_id: whitePlayerId,
           board_state: initialBoard,
-          current_turn: 'black', // 先手（黒）が最初
+          current_turn: blackPlayerId, // 先手が最初
           status: 'playing',
           moves: [],
         })

@@ -126,41 +126,14 @@ export function usePresenceMatchmaking() {
         onMatch: async (result: MatchResult) => {
           console.log('[usePresenceMatchmaking] マッチング成立!', result)
 
-          try {
-            // ゲーム作成APIを呼び出し
-            const response = await fetch('/api/matchmaking/create-game', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                player1Id: user.id,
-                player2Id: result.opponentId,
-              }),
-            })
-
-            const data = await response.json()
-
-            if (!response.ok || !data.success) {
-              throw new Error(data.error || 'ゲーム作成に失敗しました')
-            }
-
-            // ゲームID取得成功
-            setState({
-              status: 'matched',
-              gameId: data.gameId,
-              error: null,
-            })
-            setIsLoading(false)
-          } catch (error) {
-            console.error('[usePresenceMatchmaking] ゲーム作成エラー:', error)
-            setState({
-              status: 'error',
-              gameId: null,
-              error: error instanceof Error ? error.message : 'ゲーム作成に失敗しました',
-            })
-            setIsLoading(false)
-          }
+          // MatchmakingManager側でゲーム作成済み（result.gameIdが返される）
+          // APIを呼ぶ必要はない（重複実装バグを修正: #54）
+          setState({
+            status: 'matched',
+            gameId: result.gameId,
+            error: null,
+          })
+          setIsLoading(false)
         },
 
         // エラー発生時のコールバック
@@ -230,15 +203,27 @@ export function usePresenceMatchmaking() {
 
   /**
    * クリーンアップ
-   * コンポーネントアンマウント時にマッチング処理を停止
+   * コンポーネントアンマウント時とページ離脱時にマッチング処理を停止
    */
   useEffect(() => {
-    return () => {
+    const cleanup = () => {
       if (managerRef.current) {
         console.log('[usePresenceMatchmaking] クリーンアップ実行')
         managerRef.current.stop().catch(console.error)
         managerRef.current = null
       }
+    }
+
+    // ページ離脱時にも確実にクリーンアップ
+    const handleBeforeUnload = () => {
+      cleanup()
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => {
+      cleanup()
+      window.removeEventListener('beforeunload', handleBeforeUnload)
     }
   }, [])
 
