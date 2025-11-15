@@ -9,10 +9,10 @@
 'use client';
 
 import React, { createContext, useContext, useReducer, useCallback } from 'react';
-import type { GameState, Position, Move, PieceType } from '@/types/shogi';
+import type { GameState, Position, Move, PieceType, Piece } from '@/types/shogi';
 import { isCapturablePieceType } from '@/types/shogi';
 import { createInitialGameState } from '../game/initial-state';
-import { getValidMoves, canDropPiece, isInCheck, isCheckmate } from '../game/rules';
+import { getValidMoves, canDropPiece, isInCheck, isCheckmate, shouldOfferPromotion, mustPromote } from '../game/rules';
 
 // ========================================
 // Action Types
@@ -28,7 +28,9 @@ type GameAction =
   | { type: 'RESIGN' }
   | { type: 'UNDO' }
   | { type: 'SET_GAME_STATE'; payload: GameState }
-  | { type: 'CLEAR_ERROR' };  // 詳細: エラーUI実装
+  | { type: 'CLEAR_ERROR' }  // 詳細: エラーUI実装
+  | { type: 'PROMOTE' }  // #13: 成りを選択
+  | { type: 'NOT_PROMOTE' };  // #13: 成らないを選択
 
 // ========================================
 // Context Type
@@ -48,6 +50,8 @@ type GameContextType = {
   resign: () => void;
   undo: () => void;
   clearError: () => void;  // 詳細: エラーUI実装
+  promote: () => void;  // #13: 成りを選択
+  notPromote: () => void;  // #13: 成らないを選択
 };
 
 // ========================================
@@ -79,73 +83,40 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           const selectedPiece = state.board[state.selectedPosition.rank][state.selectedPosition.file];
           if (!selectedPiece) return state;
 
-          // 移動先の駒（取られる駒）を取得
-          const capturedPiece = state.board[position.rank][position.file];
+          // #13: 成り判定
+          const canOfferPromotion = shouldOfferPromotion(
+            state.selectedPosition,
+            position,
+            selectedPiece
+          );
+          const mustPromoteNow = mustPromote(selectedPiece.type, position, selectedPiece.owner);
 
-          // 新しい盤面を作成
-          const newBoard = state.board.map(row => [...row]);
-
-          // TODO: 成り判定（#13で実装）shouldPromoteは現在false固定
-          const shouldPromote = false;
-
-          // 駒を移動
-          newBoard[position.rank][position.file] = {
-            ...selectedPiece,
-            isPromoted: shouldPromote || selectedPiece.isPromoted,
-          };
-          newBoard[state.selectedPosition.rank][state.selectedPosition.file] = null;
-
-          // 持ち駒の更新（#11: 駒を取る機能）
-          const newCaptured = { ...state.captured };
-          if (capturedPiece) {
-            const capturingPlayer = selectedPiece.owner;
-
-            // 成駒は元に戻す
-            const capturedType = capturedPiece.type;
-
-            // 玉は取れない（通常ありえないが安全のため）
-            if (capturedType !== 'king') {
-              newCaptured[capturingPlayer] = {
-                ...newCaptured[capturingPlayer],
-                [capturedType]: newCaptured[capturingPlayer][capturedType] + 1,
-              };
-            }
+          // 強制成りの場合は自動的に成る
+          if (mustPromoteNow) {
+            return gameReducer(state, {
+              type: 'MOVE_PIECE',
+              payload: { from: state.selectedPosition, to: position, shouldPromote: true }
+            });
           }
 
-          // 手番を交代
-          const nextTurn = state.currentTurn === 'black' ? 'white' : 'black';
+          // 成りの選択肢を提示する場合
+          if (canOfferPromotion) {
+            return {
+              ...state,
+              promotionState: {
+                isOpen: true,
+                from: state.selectedPosition,
+                to: position,
+                piece: selectedPiece,
+              },
+            };
+          }
 
-          // 移動履歴を記録
-          const move: Move = {
-            type: 'move',
-            from: state.selectedPosition,
-            to: position,
-            piece: selectedPiece.type,
-            isPromoted: selectedPiece.isPromoted,
-            shouldPromote,
-            capturedPiece: capturedPiece?.type || null,
-            timestamp: new Date(),
-          };
-
-          // 王手チェック (#16)
-          const inCheck = isInCheck(newBoard, nextTurn);
-
-          // 詰みチェック (#17)
-          const inCheckmate = inCheck && isCheckmate(newBoard, nextTurn);
-          const newGameStatus = inCheckmate ? 'checkmate' : (inCheck ? 'check' : 'playing');
-
-          return {
-            ...state,
-            board: newBoard,
-            captured: newCaptured,
-            currentTurn: nextTurn,
-            moveHistory: [...state.moveHistory, move],
-            selectedPosition: null,
-            validMoves: [],
-            lastMove: move,
-            isCheck: inCheck,
-            gameStatus: newGameStatus,
-          };
+          // 成れない場合は通常の移動
+          return gameReducer(state, {
+            type: 'MOVE_PIECE',
+            payload: { from: state.selectedPosition, to: position, shouldPromote: false }
+          });
         }
       }
 
@@ -404,6 +375,52 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       };
     }
 
+    case 'PROMOTE': {
+      // #13: 成りを選択
+      const { from, to, piece } = state.promotionState;
+      if (!from || !to || !piece) return state;
+
+      // 成りで駒を移動
+      const newState = gameReducer(state, {
+        type: 'MOVE_PIECE',
+        payload: { from, to, shouldPromote: true }
+      });
+
+      // ダイアログを閉じる
+      return {
+        ...newState,
+        promotionState: {
+          isOpen: false,
+          from: null,
+          to: null,
+          piece: null,
+        },
+      };
+    }
+
+    case 'NOT_PROMOTE': {
+      // #13: 成らないを選択
+      const { from, to, piece } = state.promotionState;
+      if (!from || !to || !piece) return state;
+
+      // 成らずに駒を移動
+      const newState = gameReducer(state, {
+        type: 'MOVE_PIECE',
+        payload: { from, to, shouldPromote: false }
+      });
+
+      // ダイアログを閉じる
+      return {
+        ...newState,
+        promotionState: {
+          isOpen: false,
+          from: null,
+          to: null,
+          piece: null,
+        },
+      };
+    }
+
     default:
       return state;
   }
@@ -459,6 +476,14 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'CLEAR_ERROR' });
   }, []);
 
+  const promote = useCallback(() => {
+    dispatch({ type: 'PROMOTE' });
+  }, []);
+
+  const notPromote = useCallback(() => {
+    dispatch({ type: 'NOT_PROMOTE' });
+  }, []);
+
   const value: GameContextType = {
     gameState,
     dispatch,
@@ -471,6 +496,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     resign,
     undo,
     clearError,
+    promote,
+    notPromote,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

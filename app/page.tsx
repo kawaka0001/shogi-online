@@ -1,15 +1,16 @@
-// 詳細: #6, #7, #18, エラーUI実装
+// 詳細: #6, #7, #13, #18, エラーUI実装
 'use client';
 
 import { Board } from '@/components/board/Board';
 import { CapturedPieces } from '@/components/captured/CapturedPieces';
 import { GameControl } from '@/components/control/GameControl';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
+import { PromotionDialog } from '@/components/game/PromotionDialog';
 import { GameProvider, useGame } from '@/lib/context/GameContext';
 import type { PieceType } from '@/types/shogi';
 
 function GameContent() {
-  const { gameState, newGame, resign, clearError, selectCapturedPiece } = useGame();
+  const { gameState, newGame, resign, clearError, selectCapturedPiece, promote, notPromote } = useGame();
 
   // 先手の持ち駒クリック処理（手番チェック付き）
   const handleBlackCapturedPieceClick = (pieceType: PieceType) => {
@@ -27,6 +28,15 @@ function GameContent() {
     <main className="min-h-screen bg-gradient-to-b from-amber-50 to-amber-100 py-4 sm:py-8">
       {/* エラーメッセージ表示 */}
       <ErrorMessage message={gameState.errorMessage} onClose={clearError} />
+
+      {/* 成り判定ダイアログ (#13) */}
+      <PromotionDialog
+        isOpen={gameState.promotionState.isOpen}
+        pieceType={gameState.promotionState.piece?.type || null}
+        player={gameState.promotionState.piece?.owner || null}
+        onPromote={promote}
+        onNotPromote={notPromote}
+      />
 
       <div className="container mx-auto px-4">
         {/* ヘッダー */}
