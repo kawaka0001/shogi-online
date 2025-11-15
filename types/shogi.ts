@@ -255,6 +255,7 @@ export type PieceProps = {
 export type CapturedPiecesProps = {
   player: Player;
   pieces: PlayerCapturedPieces;
+  selectedPiece?: PieceType | null;  // #11: 選択中の持ち駒
   onPieceClick?: (pieceType: PieceType) => void;
 };
 
