@@ -9,7 +9,9 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "clean": "rm -rf .next",
+    "build:clean": "npm run clean && npm run build"
   },
   "dependencies": {
     "next": "14.2.18",
