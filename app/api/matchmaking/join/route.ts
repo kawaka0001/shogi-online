@@ -30,35 +30,13 @@ export async function POST(request: NextRequest) {
 
     console.log('[Matchmaking] ユーザーがマッチング参加:', user.id);
 
-    // すでにマッチング待機中かチェック
-    const { data: existingQueue, error: checkError } = await supabase
-      .from('matchmaking_queue')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('status', 'waiting')
-      .single();
+    // Postgres関数を使ってアトミックにマッチング処理
+    // 詳細: #52 - レースコンディション対策
+    const { data: matchResult, error: matchError } = await supabase
+      .rpc('find_and_match_opponent', { p_user_id: user.id });
 
-    if (existingQueue) {
-      console.log('[Matchmaking] すでに待機中:', existingQueue.id);
-      return NextResponse.json({
-        status: 'waiting',
-        message: 'すでにマッチング待機中です'
-      });
-    }
-
-    // 他の待機中のユーザーを取得（自分以外）
-    const { data: waitingUsers, error: waitingError } = await supabase
-      .from('matchmaking_queue')
-      .select('*')
-      .eq('status', 'waiting')
-      .neq('user_id', user.id)
-      .order('created_at', { ascending: true })
-      .limit(1);
-
-    console.log('[Matchmaking] 待機中のユーザー検索結果:', waitingUsers?.length ?? 0);
-
-    if (waitingError) {
-      console.error('待機中ユーザー取得エラー:', waitingError);
+    if (matchError) {
+      console.error('[Matchmaking] マッチング関数エラー:', matchError);
       return NextResponse.json(
         {
           success: false,
@@ -68,44 +46,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 待機中のユーザーがいない場合は、自分を待機キューに追加
-    if (!waitingUsers || waitingUsers.length === 0) {
-      console.log('[Matchmaking] 待機中のユーザーなし - キューに追加');
-      const { data: newQueueEntry, error: insertError } = await supabase
-        .from('matchmaking_queue')
-        .insert({
-          user_id: user.id,
-          status: 'waiting'
-        })
-        .select()
-        .single();
+    const result = matchResult?.[0];
+    if (!result) {
+      console.error('[Matchmaking] マッチング結果が空');
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'マッチング処理に失敗しました'
+        },
+        { status: 500 }
+      );
+    }
 
-      if (insertError) {
-        console.error('[Matchmaking] キュー追加エラー:', insertError);
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'マッチングキューへの追加に失敗しました'
-          },
-          { status: 500 }
-        );
-      }
+    console.log('[Matchmaking] マッチング関数結果:', result);
 
-      console.log('[Matchmaking] キュー追加成功:', newQueueEntry.id);
+    // 待機中のユーザーがいない場合
+    if (!result.matched) {
+      console.log('[Matchmaking] 待機中 - キューID:', result.queue_id);
       return NextResponse.json({
         status: 'waiting',
         message: 'マッチング相手を待っています'
       });
     }
 
-    // マッチング成立 - 待機中のユーザーとマッチング
-    const opponentQueue = waitingUsers[0];
-    console.log('[Matchmaking] マッチング成立！ 相手:', opponentQueue.user_id);
+    // マッチング成立
+    console.log('[Matchmaking] マッチング成立！ 相手:', result.opponent_id);
+    const opponentQueueId = result.queue_id;
 
     // ランダムで先手・後手を決定
     const isCurrentUserBlack = Math.random() < 0.5;
-    const blackPlayerId = isCurrentUserBlack ? user.id : opponentQueue.user_id;
-    const whitePlayerId = isCurrentUserBlack ? opponentQueue.user_id : user.id;
+    const blackPlayerId = isCurrentUserBlack ? user.id : result.opponent_id;
+    const whitePlayerId = isCurrentUserBlack ? result.opponent_id : user.id;
 
     // 初期盤面を生成
     const initialState = createInitialGameState();
@@ -148,7 +119,7 @@ export async function POST(request: NextRequest) {
           game_id: newGame.id,
           matched_at: new Date().toISOString()
         })
-        .eq('id', opponentQueue.id),
+        .eq('id', opponentQueueId),
 
       // 自分のキューエントリを作成してマッチ済みにする
       supabase
