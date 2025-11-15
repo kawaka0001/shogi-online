@@ -5,6 +5,7 @@
 
 import type { Board, Piece, Player, Position, PieceType } from '@/types/shogi';
 import { isValidPosition } from '../utils/position';
+import { validateDrop as validateDropIllegal } from './validation';
 
 // ========================================
 // 型定義
@@ -659,7 +660,11 @@ export function canDropPiece(
     }
   }
 
-  // TODO: 禁じ手チェック（打ち歩詰め、王手放置など） - 詳細: #14
+  // 禁じ手チェック（打ち歩詰め、王手放置など） - 詳細: #14
+  const illegalMoveCheck = validateDropIllegal(board, pieceType, to, player);
+  if (!illegalMoveCheck.isValid) {
+    return illegalMoveCheck;
+  }
 
   return { isValid: true };
 }
