@@ -8,7 +8,7 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { GameProvider, useGame } from '@/lib/context/GameContext';
 
 function GameContent() {
-  const { gameState, newGame, resign, clearError } = useGame();
+  const { gameState, newGame, resign, clearError, selectCapturedPiece } = useGame();
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-amber-50 to-amber-100 py-4 sm:py-8">
@@ -43,6 +43,7 @@ function GameContent() {
             <CapturedPieces
               player="white"
               pieces={gameState.captured.white}
+              onPieceClick={selectCapturedPiece}
             />
           </div>
 
@@ -56,6 +57,7 @@ function GameContent() {
             <CapturedPieces
               player="black"
               pieces={gameState.captured.black}
+              onPieceClick={selectCapturedPiece}
             />
           </div>
         </div>
