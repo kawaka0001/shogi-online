@@ -51,6 +51,8 @@ export function GameControl({
     }
   };
 
+  const isGameOver = gameStatus === 'checkmate' || gameStatus === 'resignation' || gameStatus === 'draw' || gameStatus === 'timeout';
+
   return (
     <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
       {/* ステータス表示 */}
@@ -58,6 +60,13 @@ export function GameControl({
         <h2 className={`text-xl sm:text-2xl ${getStatusColor()}`}>
           {getStatusText()}
         </h2>
+
+        {/* ゲーム終了時の追加メッセージ (#17) */}
+        {isGameOver && (
+          <p className="mt-2 text-sm sm:text-base text-gray-600">
+            「新規対局」で再度対局できます
+          </p>
+        )}
       </div>
 
       {/* コントロールボタン */}

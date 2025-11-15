@@ -62,6 +62,13 @@ type GameContextType = {
 function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case 'SELECT_SQUARE': {
+      // #17: ゲーム終了時は操作を受け付けない
+      const isGameOver = state.gameStatus === 'checkmate' ||
+                         state.gameStatus === 'resignation' ||
+                         state.gameStatus === 'draw' ||
+                         state.gameStatus === 'timeout';
+      if (isGameOver) return state;
+
       const { payload: position } = action;
       const piece = state.board[position.rank][position.file];
 
@@ -157,6 +164,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SELECT_CAPTURED_PIECE': {
+      // #17: ゲーム終了時は操作を受け付けない
+      const isGameOver = state.gameStatus === 'checkmate' ||
+                         state.gameStatus === 'resignation' ||
+                         state.gameStatus === 'draw' ||
+                         state.gameStatus === 'timeout';
+      if (isGameOver) return state;
+
       // #12: 持ち駒を選択
       const { payload: pieceType } = action;
 
