@@ -6,9 +6,22 @@ import { CapturedPieces } from '@/components/captured/CapturedPieces';
 import { GameControl } from '@/components/control/GameControl';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { GameProvider, useGame } from '@/lib/context/GameContext';
+import type { PieceType } from '@/types/shogi';
 
 function GameContent() {
   const { gameState, newGame, resign, clearError, selectCapturedPiece } = useGame();
+
+  // 先手の持ち駒クリック処理（手番チェック付き）
+  const handleBlackCapturedPieceClick = (pieceType: PieceType) => {
+    if (gameState.currentTurn !== 'black') return;
+    selectCapturedPiece(pieceType);
+  };
+
+  // 後手の持ち駒クリック処理（手番チェック付き）
+  const handleWhiteCapturedPieceClick = (pieceType: PieceType) => {
+    if (gameState.currentTurn !== 'white') return;
+    selectCapturedPiece(pieceType);
+  };
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-amber-50 to-amber-100 py-4 sm:py-8">
@@ -43,7 +56,7 @@ function GameContent() {
             <CapturedPieces
               player="white"
               pieces={gameState.captured.white}
-              onPieceClick={selectCapturedPiece}
+              onPieceClick={handleWhiteCapturedPieceClick}
             />
           </div>
 
@@ -57,7 +70,7 @@ function GameContent() {
             <CapturedPieces
               player="black"
               pieces={gameState.captured.black}
-              onPieceClick={selectCapturedPiece}
+              onPieceClick={handleBlackCapturedPieceClick}
             />
           </div>
         </div>
