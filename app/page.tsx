@@ -13,6 +13,9 @@ import { useAuth } from '@/lib/context/AuthContext';
 import type { PieceType } from '@/types/shogi';
 import Link from 'next/link';
 
+// 動的レンダリングを強制（静的生成を無効化）
+export const dynamic = 'force-dynamic';
+
 function GameContent() {
   const { gameState, newGame, resign, clearError, selectCapturedPiece, promote, notPromote } = useGame();
   const { user } = useAuth();

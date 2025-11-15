@@ -7,6 +7,9 @@ import { useAuth } from '@/lib/context/AuthContext'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 
+// 動的レンダリングを強制（静的生成を無効化）
+export const dynamic = 'force-dynamic'
+
 export default function ProfilePage() {
   const { user, loading, signOut } = useAuth()
   const router = useRouter()
