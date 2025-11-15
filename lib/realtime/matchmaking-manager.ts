@@ -45,6 +45,7 @@ export class MatchmakingManager {
   private callbacks: MatchmakingCallbacks = {};
   private isMatched = false;
   private matchingLock = false; // マッチング処理の排他制御
+  private myJoinedAt: string = ''; // 自分が参加した時刻
 
   /**
    * コンストラクタ
@@ -114,7 +115,7 @@ export class MatchmakingManager {
         username: this.username,
         status: 'searching',
         skillLevel: this.skillLevel,
-        joinedAt: new Date().toISOString(),
+        joinedAt: (this.myJoinedAt = new Date().toISOString()),
       };
 
       console.log('[MatchmakingManager] Presence送信:', presence);
@@ -321,10 +322,10 @@ export class MatchmakingManager {
       console.log('[MatchmakingManager] マッチング相手決定:', opponent);
 
       // 自分が後から参加した場合は相手がゲームを作るまで待つ
-      const myJoinedAt = new Date().getTime();
-      const opponentJoinedAt = new Date(opponent.joinedAt).getTime();
+      const myJoinedAtTime = new Date(this.myJoinedAt).getTime();
+      const opponentJoinedAtTime = new Date(opponent.joinedAt).getTime();
 
-      if (myJoinedAt > opponentJoinedAt) {
+      if (myJoinedAtTime > opponentJoinedAtTime) {
         console.log(
           '[MatchmakingManager] 相手が先に参加しているため、相手がゲームを作成するまで待機'
         );
