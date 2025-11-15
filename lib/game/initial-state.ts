@@ -105,6 +105,7 @@ export function createInitialGameState(): GameState {
     isCheck: false,
     selectedPosition: null,
     validMoves: [],
+    selectedCapturedPiece: null, // #12: 持ち駒選択
     lastMove: null,
   };
 }
