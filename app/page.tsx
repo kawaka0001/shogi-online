@@ -6,6 +6,7 @@ import { Board } from '@/components/board/Board';
 import { CapturedPieces } from '@/components/captured/CapturedPieces';
 import { GameControl } from '@/components/control/GameControl';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { PromotionDialog } from '@/components/game/PromotionDialog';
 import { GameProvider, useGame } from '@/lib/context/GameContext';
 import type { PieceType } from '@/types/shogi';
@@ -40,7 +41,12 @@ function GameContent() {
   }, [gameState.currentTurn, gameState.selectedCapturedPiece]);
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-amber-50 to-amber-100 py-3 sm:py-4 md:py-6 lg:py-8">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 py-3 sm:py-4 md:py-6 lg:py-8">
+      {/* テーマ切り替えボタン - 右上固定 */}
+      <div className="fixed top-4 right-4 z-40">
+        <ThemeToggle />
+      </div>
+
       {/* エラーメッセージ表示 */}
       <ErrorMessage message={gameState.errorMessage} onClose={clearError} />
 
@@ -53,19 +59,19 @@ function GameContent() {
         onNotPromote={notPromote}
       />
 
-      <div className="container mx-auto px-3 sm:px-4 md:px-6">
-        {/* ヘッダー - 詳細: #18 レスポンシブ対応 */}
-        <div className="text-center mb-4 sm:mb-6 md:mb-8">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-1 sm:mb-2">
+      <div className="container mx-auto px-3 sm:px-4 md:px-6 max-w-7xl">
+        {/* ヘッダー - モダンデザイン */}
+        <div className="text-center mb-5 sm:mb-6 md:mb-8">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 dark:text-slate-100 mb-2 sm:mb-3 tracking-tight">
             将棋
           </h1>
-          <p className="text-sm sm:text-base md:text-lg text-gray-600">
-            ローカル対戦
+          <p className="text-sm sm:text-base md:text-lg text-slate-600 dark:text-slate-400 font-medium">
+            ローカル対戦モード
           </p>
         </div>
 
-        {/* ゲームコントロール - 詳細: #18 レスポンシブ対応 */}
-        <div className="mb-4 sm:mb-6 md:mb-8">
+        {/* ゲームコントロール - モダンデザイン */}
+        <div className="mb-5 sm:mb-6 md:mb-8">
           <GameControl
             gameStatus={gameState.gameStatus}
             currentTurn={gameState.currentTurn}
@@ -74,9 +80,9 @@ function GameContent() {
           />
         </div>
 
-        {/* メインゲーム画面 - 詳細: #18 レスポンシブ対応 */}
-        <div className="flex flex-col lg:flex-row items-start justify-center gap-4 sm:gap-5 md:gap-6 lg:gap-8">
-          {/* 後手の持ち駒 - 詳細: #18 メモ化されたpropsを使用 */}
+        {/* メインゲーム画面 - モダンデザイン */}
+        <div className="flex flex-col lg:flex-row items-center lg:items-start justify-center gap-4 sm:gap-5 md:gap-6 lg:gap-8 xl:gap-10">
+          {/* 後手の持ち駒 */}
           <div className="w-full lg:w-auto order-1 lg:order-1">
             <CapturedPieces
               player="white"
@@ -91,7 +97,7 @@ function GameContent() {
             <Board />
           </div>
 
-          {/* 先手の持ち駒 - 詳細: #18 メモ化されたpropsを使用 */}
+          {/* 先手の持ち駒 */}
           <div className="w-full lg:w-auto order-3 lg:order-3">
             <CapturedPieces
               player="black"
@@ -102,9 +108,16 @@ function GameContent() {
           </div>
         </div>
 
-        {/* フッター（情報表示） - 詳細: #18 レスポンシブ対応 */}
-        <div className="mt-6 sm:mt-7 md:mt-8 text-center text-xs sm:text-sm text-gray-600">
-          <p>手数: {gameState.moveHistory.length}</p>
+        {/* フッター（情報表示） - モダンデザイン */}
+        <div className="mt-6 sm:mt-7 md:mt-8 text-center">
+          <div className="inline-flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm px-4 py-2 rounded-full shadow-soft">
+            <span className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
+              手数
+            </span>
+            <span className="text-sm sm:text-base font-bold text-shogi-accent-primary">
+              {gameState.moveHistory.length}
+            </span>
+          </div>
         </div>
       </div>
     </main>

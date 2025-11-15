@@ -93,39 +93,39 @@ export function Board() {
   return (
     <>
       <div className="flex flex-col items-center gap-2 sm:gap-3 md:gap-4">
-        {/* 筋のラベル（横軸: 9-1） - 詳細: #18 レスポンシブ対応 */}
+        {/* 筋のラベル（横軸: 9-1） - モダンデザイン */}
         <div className="flex">
-          <div className="w-6 sm:w-7 md:w-8 lg:w-10" /> {/* 段ラベル用のスペース */}
+          <div className="w-6 sm:w-7 md:w-8 lg:w-9" /> {/* 段ラベル用のスペース */}
           {Array.from({ length: BOARD_SIZE }).map((_, file) => (
             <div
               key={file}
-              className="w-10 h-6 sm:w-11 sm:h-7 md:w-12 md:h-8 lg:w-14 lg:h-9 xl:w-16 xl:h-10 flex items-center justify-center text-xs sm:text-sm md:text-base font-semibold"
+              className="w-10 h-6 sm:w-11 sm:h-7 md:w-12 md:h-8 lg:w-13 lg:h-9 xl:w-14 xl:h-9 flex items-center justify-center text-xs sm:text-sm md:text-base font-semibold text-slate-600 dark:text-slate-400"
             >
               {getFileLabel(file)}
             </div>
           ))}
         </div>
 
-        {/* 盤面本体 */}
+        {/* 盤面本体 - モダンデザイン: 影とボーダーを追加 */}
         <div className="flex">
-          {/* 段のラベル（縦軸: 一-九） - 詳細: #18 レスポンシブ対応 */}
+          {/* 段のラベル（縦軸: 一-九） */}
           <div className="flex flex-col">
             {Array.from({ length: BOARD_SIZE }).map((_, rank) => (
               <div
                 key={rank}
-                className="w-6 h-10 sm:w-7 sm:h-11 md:w-8 md:h-12 lg:w-10 lg:h-14 xl:w-10 xl:h-16 flex items-center justify-center text-xs sm:text-sm md:text-base font-semibold"
+                className="w-6 h-10 sm:w-7 sm:h-11 md:w-8 md:h-12 lg:w-9 lg:h-13 xl:w-9 xl:h-14 flex items-center justify-center text-xs sm:text-sm md:text-base font-semibold text-slate-600 dark:text-slate-400"
               >
                 {getRankLabel(rank)}
               </div>
             ))}
           </div>
 
-          {/* 9x9のマス - 詳細: #18 パフォーマンス最適化（メモ化されたpositionを使用） */}
-          <div className="inline-block border-2 border-gray-800 bg-amber-50">
+          {/* 9x9のマス - モダンデザイン: シャドウと丸角 */}
+          <div className="inline-block rounded-md shadow-strong bg-shogi-board-bg border-2 border-slate-300 dark:border-slate-600 overflow-hidden">
             {gameState.board.map((row, rank) => (
               <div key={rank} className="flex">
                 {row.map((piece, file) => {
-                  const position = boardPositions[rank][file]; // メモ化されたposition
+                  const position = boardPositions[rank][file];
                   return (
                     <Square
                       key={`${rank}-${file}`}

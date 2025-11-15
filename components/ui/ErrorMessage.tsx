@@ -1,6 +1,6 @@
 /**
- * エラーメッセージ表示コンポーネント
- * 詳細: エラーUI実装, #18 パフォーマンス最適化
+ * エラーメッセージ表示コンポーネント - モダンデザイン
+ * 詳細: エラーUI実装, #18 パフォーマンス最適化, UI Redesign
  */
 
 'use client';
@@ -13,18 +13,13 @@ type ErrorMessageProps = {
 };
 
 /**
- * エラーメッセージをトースト型UIで表示
+ * エラーメッセージをトースト型UIで表示（モダン版）
  *
  * Features:
  * - 自動で5秒後に消える
  * - 閉じるボタン付き
  * - レスポンシブ対応
- *
- * Usage:
- * <ErrorMessage
- *   message={errorMessage}
- *   onClose={() => clearError()}
- * />
+ * - モダンなデザイン
  */
 export const ErrorMessage = memo(function ErrorMessage({ message, onClose }: ErrorMessageProps) {
   // 5秒後に自動的にエラーメッセージをクリア
@@ -39,51 +34,53 @@ export const ErrorMessage = memo(function ErrorMessage({ message, onClose }: Err
   if (!message) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-50 max-w-md animate-fadeIn">
-      <div className="bg-red-100 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded shadow-lg">
-        <div className="flex items-start">
-          <div className="flex-shrink-0">
-            {/* エラーアイコン */}
+    <div className="fixed top-4 right-4 left-4 sm:left-auto z-50 max-w-md mx-auto sm:mx-0 animate-slideInDown">
+      <div className="bg-red-50 dark:bg-red-900/30 border-l-4 border-shogi-accent-danger rounded-lg shadow-strong px-4 py-3 backdrop-blur-sm">
+        <div className="flex items-start gap-3">
+          {/* エラーアイコン - モダンデザイン */}
+          <div className="flex-shrink-0 w-6 h-6 bg-shogi-accent-danger rounded-full flex items-center justify-center">
             <svg
-              className="h-5 w-5 text-red-500"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              aria-hidden="true"
+              className="w-4 h-4 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
               <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
               />
             </svg>
           </div>
-          <div className="ml-3 flex-1">
-            <p className="font-semibold text-sm">エラー</p>
-            <p className="text-sm mt-1">{message}</p>
+
+          <div className="flex-1 pt-0.5">
+            <p className="font-bold text-sm text-red-800 dark:text-red-200">エラー</p>
+            <p className="text-sm mt-1 text-red-700 dark:text-red-300">{message}</p>
           </div>
-          <div className="ml-4 flex-shrink-0">
-            {/* 閉じるボタン */}
-            <button
-              onClick={onClose}
-              className="inline-flex text-red-700 hover:text-red-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 rounded"
-              aria-label="閉じる"
+
+          {/* 閉じるボタン - モダンデザイン */}
+          <button
+            onClick={onClose}
+            className="flex-shrink-0 inline-flex text-red-700 dark:text-red-300 hover:text-red-900 dark:hover:text-red-100
+                       focus:outline-none focus:ring-2 focus:ring-shogi-accent-danger rounded-full p-1
+                       transition-colors duration-200 hover:bg-red-100 dark:hover:bg-red-800/50"
+            aria-label="閉じる"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
-              <svg
-                className="h-5 w-5"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </button>
-          </div>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
         </div>
       </div>
     </div>

@@ -2,8 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 詳細: #18 - カスタムアニメーション定義 */
+/* モダンボードゲームUI - デザインシステム */
 @layer utilities {
+  /* フェードインアニメーション */
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -13,10 +14,11 @@
     }
   }
 
+  /* スライドダウンアニメーション */
   @keyframes slideInDown {
     from {
       opacity: 0;
-      transform: translateY(-10px);
+      transform: translateY(-12px);
     }
     to {
       opacity: 1;
@@ -24,10 +26,11 @@
     }
   }
 
+  /* スケールインアニメーション */
   @keyframes scaleIn {
     from {
       opacity: 0;
-      transform: scale(0.95);
+      transform: scale(0.9);
     }
     to {
       opacity: 1;
@@ -35,42 +38,103 @@
     }
   }
 
-  @keyframes pulse {
+  /* 控えめなパルスアニメーション */
+  @keyframes pulseSubtle {
     0%, 100% {
       opacity: 1;
+      transform: scale(1);
     }
     50% {
-      opacity: 0.7;
+      opacity: 0.95;
+      transform: scale(1.02);
     }
   }
 
+  /* シェイクアニメーション */
   @keyframes shake {
     0%, 100% {
       transform: translateX(0);
     }
     25% {
-      transform: translateX(-4px);
+      transform: translateX(-3px);
     }
     75% {
-      transform: translateX(4px);
+      transform: translateX(3px);
+    }
+  }
+
+  /* グロー効果アニメーション */
+  @keyframes glow {
+    0%, 100% {
+      box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+    }
+    50% {
+      box-shadow: 0 0 16px rgba(59, 130, 246, 0.8);
+    }
+  }
+
+  /* スライドアップアニメーション（モーダル用） */
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
     }
   }
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* ライトモード */
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card-bg: #ffffff;
+  --board-light: #e2e8f0;
+  --board-dark: #cbd5e1;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* ダークモード */
+    --background: #0f172a;
+    --foreground: #f1f5f9;
+    --card-bg: #1e293b;
+    --board-light: #334155;
+    --board-dark: #475569;
   }
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-noto-sans-jp), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-feature-settings: "palt";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* スムーズスクロール */
+html {
+  scroll-behavior: smooth;
+}
+
+/* カスタムスクロールバー（Webkit） */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.8);
 }
