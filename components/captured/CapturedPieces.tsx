@@ -16,22 +16,23 @@ export const CapturedPieces = memo(function CapturedPieces({ player, pieces, sel
   const hasCapturedPieces = PIECE_ORDER.some(pieceType => pieces[pieceType] > 0);
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-4 min-w-[200px] sm:min-w-[240px]">
-      <h3 className="text-lg font-bold text-gray-800 mb-3 text-center border-b-2 border-gray-200 pb-2">
+    <div className="bg-white rounded-lg shadow-md p-3 sm:p-4 md:p-5 min-w-[180px] sm:min-w-[200px] md:min-w-[220px] lg:min-w-[240px]">
+      {/* 詳細: #18 レスポンシブ対応 */}
+      <h3 className="text-base sm:text-lg md:text-xl font-bold text-gray-800 mb-2 sm:mb-3 text-center border-b-2 border-gray-200 pb-2">
         {player === 'black' ? '先手の持ち駒' : '後手の持ち駒'}
       </h3>
 
       {!hasCapturedPieces ? (
-        <div className="text-center text-gray-400 py-4 text-sm">
+        <div className="text-center text-gray-400 py-3 sm:py-4 text-xs sm:text-sm">
           なし
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-1.5 sm:space-y-2">
           {PIECE_ORDER.map((pieceType) => {
             const count = pieces[pieceType];
             if (count === 0) return null;
 
-            // #11: 選択中の持ち駒をハイライト
+            // #11, #18: 選択中の持ち駒をハイライト + pulseアニメーション
             const isSelected = selectedPiece === pieceType;
 
             return (
@@ -39,11 +40,11 @@ export const CapturedPieces = memo(function CapturedPieces({ player, pieces, sel
                 key={pieceType}
                 className={`
                   flex items-center justify-between
-                  px-3 py-2
+                  px-2 py-1.5 sm:px-3 sm:py-2 md:px-4 md:py-2.5
                   rounded-md
                   transition-all
                   ${isSelected
-                    ? 'bg-blue-200 ring-2 ring-blue-400 shadow-lg'
+                    ? 'bg-blue-200 ring-2 ring-blue-400 shadow-lg animate-pulse'
                     : onPieceClick
                       ? 'cursor-pointer hover:bg-blue-50 hover:shadow-sm active:bg-blue-100'
                       : 'bg-gray-50'
@@ -54,7 +55,7 @@ export const CapturedPieces = memo(function CapturedPieces({ player, pieces, sel
                 tabIndex={onPieceClick ? 0 : undefined}
               >
                 <span
-                  className="text-xl font-bold"
+                  className="text-lg sm:text-xl md:text-2xl font-bold"
                   style={{
                     fontFamily: 'var(--font-noto-serif-jp), "Noto Serif JP", serif',
                   }}
@@ -62,7 +63,7 @@ export const CapturedPieces = memo(function CapturedPieces({ player, pieces, sel
                   {PIECE_NAMES_JA[pieceType].normal}
                 </span>
                 {count > 1 && (
-                  <span className="text-sm font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                  <span className="text-xs sm:text-sm font-semibold text-gray-600 bg-gray-100 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded">
                     ×{count}
                   </span>
                 )}

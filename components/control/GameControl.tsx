@@ -1,15 +1,15 @@
 /**
  * ゲーム制御コンポーネント
- * 詳細: #5, #18
+ * 詳細: #5, #18, パフォーマンス最適化
  */
 
 'use client';
 
-import React from 'react';
+import React, { memo } from 'react';
 import type { GameControlProps } from '@/types/shogi';
 import { getPlayerName } from '@/lib/utils/piece';
 
-export function GameControl({
+export const GameControl = memo(function GameControl({
   gameStatus,
   currentTurn,
   onNewGame,
@@ -54,29 +54,29 @@ export function GameControl({
   const isGameOver = gameStatus === 'checkmate' || gameStatus === 'resignation' || gameStatus === 'draw' || gameStatus === 'timeout';
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
-      {/* ステータス表示 */}
-      <div className="text-center mb-4">
-        <h2 className={`text-xl sm:text-2xl ${getStatusColor()}`}>
+    <div className="bg-white rounded-lg shadow-md p-3 sm:p-4 md:p-5 lg:p-6">
+      {/* ステータス表示 - 詳細: #18 レスポンシブ対応 */}
+      <div className="text-center mb-3 sm:mb-4">
+        <h2 className={`text-lg sm:text-xl md:text-2xl lg:text-3xl ${getStatusColor()}`}>
           {getStatusText()}
         </h2>
 
         {/* ゲーム終了時の追加メッセージ (#17) */}
         {isGameOver && (
-          <p className="mt-2 text-sm sm:text-base text-gray-600">
+          <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm md:text-base text-gray-600">
             「新規対局」で再度対局できます
           </p>
         )}
       </div>
 
-      {/* コントロールボタン */}
-      <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+      {/* コントロールボタン - 詳細: #18 レスポンシブ対応 */}
+      <div className="flex flex-wrap justify-center gap-2 sm:gap-2.5 md:gap-3">
         <button
           onClick={onNewGame}
-          className="px-4 py-2 sm:px-6 sm:py-3 bg-blue-600 text-white font-semibold rounded-lg
-                     hover:bg-blue-700 active:bg-blue-800 transition-colors
+          className="px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 lg:px-6 lg:py-3 bg-blue-600 text-white font-semibold rounded-lg
+                     hover:bg-blue-700 active:bg-blue-800 transition-colors duration-200
                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-                     text-sm sm:text-base"
+                     text-xs sm:text-sm md:text-base"
         >
           新規対局
         </button>
@@ -85,10 +85,10 @@ export function GameControl({
           <>
             <button
               onClick={onResign}
-              className="px-4 py-2 sm:px-6 sm:py-3 bg-red-600 text-white font-semibold rounded-lg
-                         hover:bg-red-700 active:bg-red-800 transition-colors
+              className="px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 lg:px-6 lg:py-3 bg-red-600 text-white font-semibold rounded-lg
+                         hover:bg-red-700 active:bg-red-800 transition-colors duration-200
                          focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2
-                         text-sm sm:text-base"
+                         text-xs sm:text-sm md:text-base"
             >
               投了
             </button>
@@ -96,10 +96,10 @@ export function GameControl({
             {onUndo && (
               <button
                 onClick={onUndo}
-                className="px-4 py-2 sm:px-6 sm:py-3 bg-gray-600 text-white font-semibold rounded-lg
-                           hover:bg-gray-700 active:bg-gray-800 transition-colors
+                className="px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 lg:px-6 lg:py-3 bg-gray-600 text-white font-semibold rounded-lg
+                           hover:bg-gray-700 active:bg-gray-800 transition-colors duration-200
                            focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2
-                           text-sm sm:text-base"
+                           text-xs sm:text-sm md:text-base"
               >
                 1手戻す
               </button>
@@ -109,4 +109,4 @@ export function GameControl({
       </div>
     </div>
   );
-}
+});

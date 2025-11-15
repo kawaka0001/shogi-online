@@ -46,8 +46,8 @@ export const Square = memo(function Square({
   let additionalStyles = '';
 
   if (isSelected) {
-    // 選択中のマス: 青いリング
-    additionalStyles = 'ring-4 ring-blue-500 ring-inset';
+    // 選択中のマス: 青いリング + pulseアニメーション (詳細: #18)
+    additionalStyles = 'ring-4 ring-blue-500 ring-inset animate-pulse';
   } else if (isCheck) {
     // 王手がかかっているマス: 赤背景
     bgColor = 'bg-red-200';
@@ -59,8 +59,8 @@ export const Square = memo(function Square({
     additionalStyles = 'relative after:absolute after:inset-0 after:bg-green-500/30';
   }
 
-  // ホバースタイル
-  const hoverStyles = 'hover:opacity-80 transition-opacity';
+  // ホバースタイル + トランジション (詳細: #18)
+  const hoverStyles = 'hover:opacity-80 transition-all duration-200 ease-in-out';
 
   // アクセシビリティ用のaria-label
   const ariaLabel = `${position.file + 1}筋${position.rank + 1}段${
@@ -77,7 +77,7 @@ export const Square = memo(function Square({
         ${bgColor}
         ${additionalStyles}
         ${hoverStyles}
-        w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16
+        w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 lg:w-14 lg:h-14 xl:w-16 xl:h-16
         flex items-center justify-center
         border border-gray-400
         focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1
@@ -96,10 +96,10 @@ export const Square = memo(function Square({
         }
       }}
     >
-      {/* 移動可能マスのドットインジケーター */}
+      {/* 移動可能マスのドットインジケーター - 詳細: #18 レスポンシブ対応 */}
       {isValidMove && !piece && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-3 h-3 rounded-full bg-green-600 opacity-60" />
+          <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 lg:w-4 lg:h-4 xl:w-5 xl:h-5 rounded-full bg-green-600 opacity-70" />
         </div>
       )}
 

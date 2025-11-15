@@ -1,20 +1,42 @@
 /**
  * 駒関連のユーティリティ関数
- * 詳細: #5
+ * 詳細: #5, #18
  */
 
-import type { Piece, PieceType, Player } from '@/types/shogi';
+import type { Piece, PieceType, Player, PromotablePieceType } from '@/types/shogi';
 import { PIECE_NAMES_JA, PROMOTABLE_PIECES } from '../game/constants';
 
 /**
  * 駒の表示名を取得（日本語）
+ * 詳細: #18
  */
-export function getPieceName(piece: Piece): string {
-  const names = PIECE_NAMES_JA[piece.type];
-  if (piece.isPromoted && names.promoted) {
-    return names.promoted;
+export function getPieceName(piece: Piece): string;
+export function getPieceName(pieceType: PieceType, isPromoted?: boolean): string;
+export function getPieceName(pieceOrType: Piece | PieceType, isPromoted = false): string {
+  let type: PieceType;
+  let promoted: boolean;
+
+  if (typeof pieceOrType === 'object' && 'type' in pieceOrType) {
+    // Pieceオブジェクト
+    type = pieceOrType.type;
+    promoted = pieceOrType.isPromoted;
+  } else {
+    // PieceType
+    type = pieceOrType;
+    promoted = isPromoted;
   }
-  return names.normal;
+
+  const names = PIECE_NAMES_JA[type];
+  return promoted && names.promoted ? names.promoted : names.normal;
+}
+
+/**
+ * 成り駒の名前を取得する専用関数
+ * 詳細: #18
+ */
+export function getPromotedPieceName(pieceType: PromotablePieceType): string {
+  const names = PIECE_NAMES_JA[pieceType];
+  return names.promoted!; // PromotablePieceType は必ず promoted を持つ
 }
 
 /**
