@@ -124,7 +124,22 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       // 自分の駒を選択した場合
       if (piece && piece.owner === state.currentTurn) {
         // 合法手を計算 (#7, #8, #9, #10)
-        const validMoves = getValidMoves(state.board, position, piece);
+        let validMoves = getValidMoves(state.board, position, piece);
+
+        // #16: 王手中は、王手を回避する手のみを有効にする
+        if (state.isCheck) {
+          validMoves = validMoves.filter(move => {
+            // 仮想的に駒を移動してみる
+            const testBoard = state.board.map(row => [...row]);
+            testBoard[move.rank][move.file] = piece;
+            testBoard[position.rank][position.file] = null;
+
+            // 移動後に王手が解消されるかチェック
+            const stillInCheck = isInCheck(testBoard, state.currentTurn);
+            return !stillInCheck; // 王手が解消される手のみ残す
+          });
+        }
+
         return {
           ...state,
           selectedPosition: position,
@@ -164,7 +179,24 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           const position: Position = { rank, file };
           const validation = canDropPiece(state.board, pieceType, position, state.currentTurn);
           if (validation.isValid) {
-            validMoves.push(position);
+            // #16: 王手中は、王手を回避する手のみを有効にする
+            if (state.isCheck) {
+              // 仮想的に駒を打ってみる
+              const testBoard = state.board.map(row => [...row]);
+              testBoard[position.rank][position.file] = {
+                type: pieceType,
+                owner: state.currentTurn,
+                isPromoted: false,
+              };
+
+              // 駒を打った後に王手が解消されるかチェック
+              const stillInCheck = isInCheck(testBoard, state.currentTurn);
+              if (!stillInCheck) {
+                validMoves.push(position);
+              }
+            } else {
+              validMoves.push(position);
+            }
           }
         }
       }
