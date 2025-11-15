@@ -1,6 +1,6 @@
 /**
  * ゲーム制御コンポーネント
- * 詳細: #5
+ * 詳細: #5, #18
  */
 
 'use client';
@@ -37,25 +37,61 @@ export function GameControl({
     }
   };
 
+  const getStatusColor = () => {
+    switch (gameStatus) {
+      case 'check':
+        return 'text-red-600 font-bold';
+      case 'checkmate':
+      case 'resignation':
+        return 'text-blue-600 font-bold';
+      case 'draw':
+        return 'text-gray-600 font-bold';
+      default:
+        return 'text-gray-800';
+    }
+  };
+
   return (
-    <div className="game-control">
-      <div className="status-display">
-        <h2>{getStatusText()}</h2>
+    <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
+      {/* ステータス表示 */}
+      <div className="text-center mb-4">
+        <h2 className={`text-xl sm:text-2xl ${getStatusColor()}`}>
+          {getStatusText()}
+        </h2>
       </div>
 
-      <div className="control-buttons">
-        <button onClick={onNewGame} className="btn btn-primary">
+      {/* コントロールボタン */}
+      <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+        <button
+          onClick={onNewGame}
+          className="px-4 py-2 sm:px-6 sm:py-3 bg-blue-600 text-white font-semibold rounded-lg
+                     hover:bg-blue-700 active:bg-blue-800 transition-colors
+                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                     text-sm sm:text-base"
+        >
           新規対局
         </button>
 
         {gameStatus === 'playing' && (
           <>
-            <button onClick={onResign} className="btn btn-danger">
+            <button
+              onClick={onResign}
+              className="px-4 py-2 sm:px-6 sm:py-3 bg-red-600 text-white font-semibold rounded-lg
+                         hover:bg-red-700 active:bg-red-800 transition-colors
+                         focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2
+                         text-sm sm:text-base"
+            >
               投了
             </button>
 
             {onUndo && (
-              <button onClick={onUndo} className="btn btn-secondary">
+              <button
+                onClick={onUndo}
+                className="px-4 py-2 sm:px-6 sm:py-3 bg-gray-600 text-white font-semibold rounded-lg
+                           hover:bg-gray-700 active:bg-gray-800 transition-colors
+                           focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2
+                           text-sm sm:text-base"
+              >
                 1手戻す
               </button>
             )}
