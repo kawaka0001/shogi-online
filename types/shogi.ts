@@ -147,6 +147,17 @@ export type GameStatus =
   | 'timeout';     // 時間切れ
 
 /**
+ * 成り判定ダイアログの状態
+ * 詳細: #13
+ */
+export type PromotionState = {
+  isOpen: boolean;
+  from: Position | null;
+  to: Position | null;
+  piece: Piece | null;
+};
+
+/**
  * ゲーム全体の状態
  */
 export type GameState = {
@@ -161,6 +172,7 @@ export type GameState = {
   selectedCapturedPiece: PieceType | null;  // #12: 選択中の持ち駒
   lastMove: Move | null;
   errorMessage: string | null;  // 詳細: エラーUI実装
+  promotionState: PromotionState;  // #13: 成り判定ダイアログの状態
 };
 
 // ========================================

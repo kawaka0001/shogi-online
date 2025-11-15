@@ -108,5 +108,11 @@ export function createInitialGameState(): GameState {
     selectedCapturedPiece: null, // #12: 持ち駒選択
     lastMove: null,
     errorMessage: null, // 詳細: エラーUI実装
+    promotionState: {  // #13: 成り判定ダイアログの状態
+      isOpen: false,
+      from: null,
+      to: null,
+      piece: null,
+    },
   };
 }
