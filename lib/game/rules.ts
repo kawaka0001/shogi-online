@@ -5,7 +5,7 @@
 
 import type { Board, Piece, Player, Position, PieceType } from '@/types/shogi';
 import { isValidPosition } from '../utils/position';
-import { validateDrop as validateDropIllegal } from './validation';
+import { validateDrop as validateDropIllegal, isNifu } from './validation'; // #14: 二歩判定を統一
 
 // ========================================
 // 型定義
@@ -560,20 +560,16 @@ export function isValidMove(
 
 /**
  * 指定した筋に歩が既に存在するかチェック（二歩判定）
- * 詳細: #12
+ * 詳細: #12, #14
+ *
+ * @deprecated validation.ts の isNifu() を使用してください
  */
 export function hasPawnInFile(
   board: Board,
   file: number,
   player: Player
 ): boolean {
-  for (let rank = 0; rank < 9; rank++) {
-    const piece = board[rank][file];
-    if (piece && piece.owner === player && piece.type === 'pawn' && !piece.isPromoted) {
-      return true;
-    }
-  }
-  return false;
+  return isNifu(board, file, player);
 }
 
 /**

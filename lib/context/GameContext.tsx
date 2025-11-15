@@ -13,6 +13,7 @@ import type { GameState, Position, Move, PieceType, Piece } from '@/types/shogi'
 import { isCapturablePieceType } from '@/types/shogi';
 import { createInitialGameState } from '../game/initial-state';
 import { getValidMoves, canDropPiece, isInCheck, isCheckmate, shouldOfferPromotion, mustPromote } from '../game/rules';
+import { validateMove } from '../game/validation'; // #14: 禁じ手判定
 
 // ========================================
 // Action Types
@@ -182,6 +183,23 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       // 移動元の駒を取得
       const piece = state.board[from.rank][from.file];
       if (!piece) return state;
+
+      // #14: 禁じ手判定（王手放置など）
+      const moveValidation = validateMove(state.board, from, to, state.currentTurn);
+      if (!moveValidation.isValid) {
+        return {
+          ...state,
+          errorMessage: `不正な移動です: ${moveValidation.reason}`,
+          selectedPosition: null,
+          validMoves: [],
+          promotionState: {
+            isOpen: false,
+            from: null,
+            to: null,
+            piece: null,
+          },
+        };
+      }
 
       // 移動先の駒（取られる駒）を取得
       const capturedPiece = state.board[to.rank][to.file];
