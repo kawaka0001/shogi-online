@@ -367,7 +367,7 @@ export class MatchmakingManager {
           black_player_id: blackPlayerId,
           white_player_id: whitePlayerId,
           board_state: initialBoard,
-          current_turn: blackPlayerId, // 先手が最初
+          current_turn: 'black', // 先手（黒）が最初
           status: 'playing',
           moves: [],
         })
