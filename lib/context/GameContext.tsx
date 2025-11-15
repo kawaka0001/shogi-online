@@ -11,7 +11,7 @@
 import React, { createContext, useContext, useReducer, useCallback } from 'react';
 import type { GameState, Position, Move, PieceType } from '@/types/shogi';
 import { createInitialGameState } from '../game/initial-state';
-import { getValidMoves, isInCheck } from '../game/rules';
+import { getValidMoves, canDropPiece, isInCheck } from '../game/rules';
 
 // ========================================
 // Action Types
@@ -19,6 +19,7 @@ import { getValidMoves, isInCheck } from '../game/rules';
 
 type GameAction =
   | { type: 'SELECT_SQUARE'; payload: Position }
+  | { type: 'SELECT_CAPTURED_PIECE'; payload: PieceType }  // #12: 持ち駒を選択
   | { type: 'MOVE_PIECE'; payload: { from: Position; to: Position; shouldPromote: boolean } }
   | { type: 'DROP_PIECE'; payload: { pieceType: PieceType; to: Position } }
   | { type: 'DESELECT' }
@@ -37,6 +38,7 @@ type GameContextType = {
 
   // Helper functions
   selectSquare: (position: Position) => void;
+  selectCapturedPiece: (pieceType: PieceType) => void;  // #12: 持ち駒を選択
   movePiece: (from: Position, to: Position, shouldPromote: boolean) => void;
   dropPiece: (pieceType: PieceType, to: Position) => void;
   deselect: () => void;
@@ -54,6 +56,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'SELECT_SQUARE': {
       const { payload: position } = action;
       const piece = state.board[position.rank][position.file];
+
+      // 持ち駒選択中の場合、マスをクリックしたら駒を打つ (#12)
+      if (state.selectedCapturedPiece) {
+        return gameReducer(state, {
+          type: 'DROP_PIECE',
+          payload: { pieceType: state.selectedCapturedPiece, to: position }
+        });
+      }
 
       // 駒が選択されている状態で移動可能なマスをクリックした場合
       if (state.selectedPosition) {
@@ -140,6 +150,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return {
           ...state,
           selectedPosition: position,
+          selectedCapturedPiece: null,  // #12: 盤上の駒を選択したら持ち駒選択を解除
           validMoves,
         };
       }
@@ -148,7 +159,43 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         selectedPosition: null,
+        selectedCapturedPiece: null,  // #12
         validMoves: [],
+      };
+    }
+
+    case 'SELECT_CAPTURED_PIECE': {
+      // #12: 持ち駒を選択
+      const { payload: pieceType } = action;
+
+      // 玉は持ち駒にならない
+      if (pieceType === 'king') {
+        return state;
+      }
+
+      // 持ち駒があるかチェック
+      const capturedPieces = state.captured[state.currentTurn];
+      if (capturedPieces[pieceType as keyof typeof capturedPieces] === 0) {
+        return state;
+      }
+
+      // 持ち駒を打てるマスを計算
+      const validMoves: Position[] = [];
+      for (let rank = 0; rank < 9; rank++) {
+        for (let file = 0; file < 9; file++) {
+          const position: Position = { rank, file };
+          const validation = canDropPiece(state.board, pieceType, position, state.currentTurn);
+          if (validation.isValid) {
+            validMoves.push(position);
+          }
+        }
+      }
+
+      return {
+        ...state,
+        selectedPosition: null,
+        selectedCapturedPiece: pieceType,
+        validMoves,
       };
     }
 
@@ -223,14 +270,81 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'DROP_PIECE': {
-      // TODO: 持ち駒を打つ処理を実装（#12で実装）
-      return state;
+      // #12: 持ち駒を打つ処理
+      const { payload } = action;
+      const { pieceType, to } = payload;
+
+      // 玉は持ち駒にならない
+      if (pieceType === 'king') {
+        console.warn('King cannot be dropped');
+        return state;
+      }
+
+      // 合法手かチェック
+      const validation = canDropPiece(state.board, pieceType, to, state.currentTurn);
+      if (!validation.isValid) {
+        console.warn(`Invalid drop: ${validation.reason}`);
+        return {
+          ...state,
+          selectedCapturedPiece: null,
+          validMoves: [],
+        };
+      }
+
+      // 持ち駒があるかチェック
+      const capturedPieces = state.captured[state.currentTurn];
+      if (capturedPieces[pieceType as keyof typeof capturedPieces] === 0) {
+        console.warn('No captured piece to drop');
+        return state;
+      }
+
+      // 新しい盤面を作成
+      const newBoard = state.board.map(row => [...row]);
+      newBoard[to.rank][to.file] = {
+        type: pieceType,
+        owner: state.currentTurn,
+        isPromoted: false,
+      };
+
+      // 持ち駒から減らす
+      const newCaptured = {
+        ...state.captured,
+        [state.currentTurn]: {
+          ...capturedPieces,
+          [pieceType]: capturedPieces[pieceType as keyof typeof capturedPieces] - 1,
+        },
+      };
+
+      // 移動履歴に追加
+      const move: Move = {
+        type: 'drop',
+        from: null,
+        to,
+        piece: pieceType,
+        isPromoted: false,
+        shouldPromote: false,
+        capturedPiece: null,
+        timestamp: new Date(),
+      };
+
+      return {
+        ...state,
+        board: newBoard,
+        captured: newCaptured,
+        currentTurn: state.currentTurn === 'black' ? 'white' : 'black',
+        moveHistory: [...state.moveHistory, move],
+        selectedPosition: null,
+        selectedCapturedPiece: null,
+        validMoves: [],
+        lastMove: move,
+      };
     }
 
     case 'DESELECT': {
       return {
         ...state,
         selectedPosition: null,
+        selectedCapturedPiece: null,  // #12
         validMoves: [],
       };
     }
@@ -278,6 +392,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'SELECT_SQUARE', payload: position });
   }, []);
 
+  const selectCapturedPiece = useCallback((pieceType: PieceType) => {
+    dispatch({ type: 'SELECT_CAPTURED_PIECE', payload: pieceType });
+  }, []);
+
   const movePiece = useCallback((from: Position, to: Position, shouldPromote: boolean) => {
     dispatch({ type: 'MOVE_PIECE', payload: { from, to, shouldPromote } });
   }, []);
@@ -306,6 +424,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     gameState,
     dispatch,
     selectSquare,
+    selectCapturedPiece,
     movePiece,
     dropPiece,
     deselect,

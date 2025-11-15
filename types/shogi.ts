@@ -144,6 +144,7 @@ export type GameState = {
   isCheck: boolean;
   selectedPosition: Position | null;
   validMoves: Position[];
+  selectedCapturedPiece: PieceType | null;  // #12: 選択中の持ち駒
   lastMove: Move | null;
 };
 

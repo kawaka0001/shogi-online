@@ -3,7 +3,7 @@
  * 詳細: #4, #8, #10
  */
 
-import type { Board, Piece, Player, Position } from '@/types/shogi';
+import type { Board, Piece, Player, Position, PieceType } from '@/types/shogi';
 import { isValidPosition } from '../utils/position';
 
 // ========================================
@@ -551,6 +551,213 @@ export function isValidMove(
   }
 
   return { isValid: true };
+}
+
+// ========================================
+// 持ち駒を打つ時の判定 (#12)
+// ========================================
+
+/**
+ * 指定した筋に歩が既に存在するかチェック（二歩判定）
+ * 詳細: #12
+ */
+export function hasPawnInFile(
+  board: Board,
+  file: number,
+  player: Player
+): boolean {
+  for (let rank = 0; rank < 9; rank++) {
+    const piece = board[rank][file];
+    if (piece && piece.owner === player && piece.type === 'pawn' && !piece.isPromoted) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * 持ち駒を打つ位置が行き所のない駒にならないかチェック
+ * 歩・香・桂はそれ以上進めない位置には打てない
+ * 詳細: #12
+ */
+export function canPlacePiece(
+  pieceType: PieceType,
+  position: Position,
+  player: Player
+): MoveValidationResult {
+  const forward = getForwardDirection(player);
+
+  // 歩: 1段目（先手）または9段目（後手）には打てない
+  if (pieceType === 'pawn') {
+    if (player === 'black' && position.rank === 0) {
+      return { isValid: false, reason: '歩を1段目には打てません（行き所のない駒）' };
+    }
+    if (player === 'white' && position.rank === 8) {
+      return { isValid: false, reason: '歩を9段目には打てません（行き所のない駒）' };
+    }
+  }
+
+  // 香: 1段目（先手）または9段目（後手）には打てない
+  if (pieceType === 'lance') {
+    if (player === 'black' && position.rank === 0) {
+      return { isValid: false, reason: '香を1段目には打てません（行き所のない駒）' };
+    }
+    if (player === 'white' && position.rank === 8) {
+      return { isValid: false, reason: '香を9段目には打てません（行き所のない駒）' };
+    }
+  }
+
+  // 桂: 1段目・2段目（先手）または8段目・9段目（後手）には打てない
+  if (pieceType === 'knight') {
+    if (player === 'black' && (position.rank === 0 || position.rank === 1)) {
+      return { isValid: false, reason: '桂を1・2段目には打てません（行き所のない駒）' };
+    }
+    if (player === 'white' && (position.rank === 7 || position.rank === 8)) {
+      return { isValid: false, reason: '桂を8・9段目には打てません（行き所のない駒）' };
+    }
+  }
+
+  return { isValid: true };
+}
+
+/**
+ * 持ち駒を打つことができるかを判定
+ * 詳細: #12
+ *
+ * @param board - 現在の盤面
+ * @param pieceType - 打つ駒の種類
+ * @param to - 打つ位置
+ * @param player - プレイヤー
+ * @returns 判定結果
+ */
+export function canDropPiece(
+  board: Board,
+  pieceType: PieceType,
+  to: Position,
+  player: Player
+): MoveValidationResult {
+  // 盤面内かチェック
+  if (!isValidPosition(to)) {
+    return { isValid: false, reason: '盤面外には打てません' };
+  }
+
+  // 空マスかチェック
+  if (hasPiece(board, to)) {
+    return { isValid: false, reason: '駒が既に存在する位置には打てません' };
+  }
+
+  // 行き所のない駒にならないかチェック
+  const placementCheck = canPlacePiece(pieceType, to, player);
+  if (!placementCheck.isValid) {
+    return placementCheck;
+  }
+
+  // 二歩チェック（歩の場合のみ）
+  if (pieceType === 'pawn') {
+    if (hasPawnInFile(board, to.file, player)) {
+      return { isValid: false, reason: '二歩は禁じ手です' };
+    }
+  }
+
+  // TODO: 禁じ手チェック（打ち歩詰め、王手放置など） - 詳細: #14
+
+  return { isValid: true };
+}
+
+// ========================================
+// 成り（Promotion）関連 (#13)
+// ========================================
+
+/**
+ * 敵陣かどうかを判定
+ * 先手: rank 0-2（1-3段目）
+ * 後手: rank 6-8（7-9段目）
+ * 詳細: #4, #13
+ */
+export function isEnemyTerritory(position: Position, player: Player): boolean {
+  if (player === 'black') {
+    // 先手の敵陣は0-2段目（上側3段）
+    return position.rank >= 0 && position.rank <= 2;
+  } else {
+    // 後手の敵陣は6-8段目（下側3段）
+    return position.rank >= 6 && position.rank <= 8;
+  }
+}
+
+/**
+ * 駒が成れるかどうかを判定
+ * 詳細: #4, #13
+ */
+export function canPromote(pieceType: string, isPromoted: boolean): boolean {
+  // 既に成っている駒は成れない
+  if (isPromoted) return false;
+
+  // 玉と金は成れない
+  if (pieceType === 'king' || pieceType === 'gold') return false;
+
+  // それ以外の駒（歩・香・桂・銀・飛・角）は成れる
+  return ['pawn', 'lance', 'knight', 'silver', 'rook', 'bishop'].includes(pieceType);
+}
+
+/**
+ * 強制的に成らなければならないかを判定
+ * 歩・香: 最奥段（先手0段、後手8段）
+ * 桂: 最奥2段（先手0-1段、後手7-8段）
+ * 詳細: #4, #13
+ */
+export function mustPromote(
+  pieceType: string,
+  toPosition: Position,
+  player: Player
+): boolean {
+  if (player === 'black') {
+    // 先手（下から上に進む）
+    if (pieceType === 'pawn' || pieceType === 'lance') {
+      // 最奥段（0段目）に到達したら必ず成る
+      return toPosition.rank === 0;
+    }
+    if (pieceType === 'knight') {
+      // 最奥2段（0-1段目）に到達したら必ず成る
+      return toPosition.rank <= 1;
+    }
+  } else {
+    // 後手（上から下に進む）
+    if (pieceType === 'pawn' || pieceType === 'lance') {
+      // 最奥段（8段目）に到達したら必ず成る
+      return toPosition.rank === 8;
+    }
+    if (pieceType === 'knight') {
+      // 最奥2段（7-8段目）に到達したら必ず成る
+      return toPosition.rank >= 7;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * 成りの選択が可能かどうかを判定
+ * 以下のいずれかの条件を満たす場合に成れる：
+ * 1. 駒が敵陣に入る
+ * 2. 駒が既に敵陣内にいて、敵陣内で移動する
+ * 3. 駒が敵陣から出る
+ * 詳細: #4, #13
+ */
+export function shouldOfferPromotion(
+  from: Position,
+  to: Position,
+  piece: Piece
+): boolean {
+  // 成れない駒は対象外
+  if (!canPromote(piece.type, piece.isPromoted)) {
+    return false;
+  }
+
+  const fromInEnemyTerritory = isEnemyTerritory(from, piece.owner);
+  const toInEnemyTerritory = isEnemyTerritory(to, piece.owner);
+
+  // 敵陣に入る、敵陣内で移動する、敵陣から出る、のいずれか
+  return fromInEnemyTerritory || toInEnemyTerritory;
 }
 
 // ========================================
