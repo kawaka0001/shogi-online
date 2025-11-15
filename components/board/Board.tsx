@@ -24,6 +24,7 @@ export function Board() {
     gameState,
     selectSquare: contextSelectSquare,
     movePiece,
+    dropPiece,
     newGame,
   } = useGame();
 
@@ -42,7 +43,19 @@ export function Board() {
 
   // マスをクリックした時の処理（成り判定を含む） - useCallbackでメモ化してSquareの再レンダリングを防止
   const handleSquareClick = useCallback((position: Position) => {
-    const { selectedPosition, validMoves, board } = gameState;
+    const { selectedPosition, selectedCapturedPiece, validMoves, board } = gameState;
+
+    // 持ち駒が選択されており、打てる場合（#12）
+    if (selectedCapturedPiece) {
+      const isValidDropTarget = validMoves.some(
+        (move) => move.rank === position.rank && move.file === position.file
+      );
+
+      if (isValidDropTarget) {
+        dropPiece(selectedCapturedPiece, position);
+        return;
+      }
+    }
 
     // 駒が選択されており、移動先が有効な場合
     if (selectedPosition) {
@@ -80,7 +93,7 @@ export function Board() {
 
     // 通常の駒選択処理
     contextSelectSquare(position);
-  }, [gameState, contextSelectSquare, movePiece]);
+  }, [gameState, contextSelectSquare, movePiece, dropPiece]);
 
   // 成り選択ダイアログで「成る」を選択
   const handlePromote = useCallback(() => {
