@@ -1,11 +1,11 @@
 /**
  * 駒の成りを選択するダイアログ
- * 詳細: #13
+ * 詳細: #13, パフォーマンス最適化
  */
 
 'use client';
 
-import React from 'react';
+import React, { memo } from 'react';
 import type { PieceType, Player } from '@/types/shogi';
 
 export interface PromotionDialogProps {
@@ -48,7 +48,7 @@ function getPromotedName(pieceType: PieceType): string {
   return promotedNames[pieceType] || '';
 }
 
-export function PromotionDialog({
+export const PromotionDialog = memo(function PromotionDialog({
   isOpen,
   pieceType,
   player,
@@ -100,4 +100,4 @@ export function PromotionDialog({
       </div>
     </div>
   );
-}
+});

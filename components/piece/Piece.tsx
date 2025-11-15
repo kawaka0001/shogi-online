@@ -1,15 +1,15 @@
 /**
  * 駒コンポーネント
- * 詳細: #5, #6
+ * 詳細: #5, #6, パフォーマンス最適化
  */
 
 'use client';
 
-import React from 'react';
+import React, { memo } from 'react';
 import type { PieceProps } from '@/types/shogi';
 import { getPieceName } from '@/lib/utils/piece';
 
-export function Piece({ piece, size = 'medium', isDraggable = false }: PieceProps) {
+export const Piece = memo(function Piece({ piece, size = 'medium', isDraggable = false }: PieceProps) {
   const pieceName = getPieceName(piece);
   const isBlack = piece.owner === 'black';
 
@@ -39,4 +39,4 @@ export function Piece({ piece, size = 'medium', isDraggable = false }: PieceProp
       {pieceName}
     </div>
   );
-}
+});

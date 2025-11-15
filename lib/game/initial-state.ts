@@ -107,5 +107,6 @@ export function createInitialGameState(): GameState {
     validMoves: [],
     selectedCapturedPiece: null, // #12: 持ち駒選択
     lastMove: null,
+    errorMessage: null, // 詳細: エラーUI実装
   };
 }

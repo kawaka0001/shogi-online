@@ -1,13 +1,12 @@
 /**
  * 将棋盤コンポーネント
- * 詳細: #5, #6, #7, #12, #13, #17
+ * 詳細: #5, #6, #7, #12, #13, #17, パフォーマンス最適化
  */
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Square } from './Square';
-import { CapturedPieces } from '@/components/captured/CapturedPieces';
 import { PromotionDialog } from '@/components/game/PromotionDialog';
 import { GameResult } from '@/components/game/GameResult';
 import { useGame } from '@/lib/context/GameContext';
@@ -24,7 +23,6 @@ export function Board() {
   const {
     gameState,
     selectSquare: contextSelectSquare,
-    selectCapturedPiece,
     movePiece,
     newGame,
   } = useGame();
@@ -42,8 +40,8 @@ export function Board() {
     piece: null,
   });
 
-  // マスをクリックした時の処理（成り判定を含む）
-  const handleSquareClick = (position: Position) => {
+  // マスをクリックした時の処理（成り判定を含む） - useCallbackでメモ化してSquareの再レンダリングを防止
+  const handleSquareClick = useCallback((position: Position) => {
     const { selectedPosition, validMoves, board } = gameState;
 
     // 駒が選択されており、移動先が有効な場合
@@ -82,10 +80,10 @@ export function Board() {
 
     // 通常の駒選択処理
     contextSelectSquare(position);
-  };
+  }, [gameState, contextSelectSquare, movePiece]);
 
   // 成り選択ダイアログで「成る」を選択
-  const handlePromote = () => {
+  const handlePromote = useCallback(() => {
     if (promotionState.from && promotionState.to) {
       movePiece(promotionState.from, promotionState.to, true);
       setPromotionState({
@@ -95,10 +93,10 @@ export function Board() {
         piece: null,
       });
     }
-  };
+  }, [promotionState.from, promotionState.to, movePiece]);
 
   // 成り選択ダイアログで「成らない」を選択
-  const handleNotPromote = () => {
+  const handleNotPromote = useCallback(() => {
     if (promotionState.from && promotionState.to) {
       movePiece(promotionState.from, promotionState.to, false);
       setPromotionState({
@@ -108,7 +106,7 @@ export function Board() {
         piece: null,
       });
     }
-  };
+  }, [promotionState.from, promotionState.to, movePiece]);
 
   // 筋のラベル（9-1）
   const getFileLabel = (file: number): string => String(9 - file);
@@ -154,15 +152,6 @@ export function Board() {
   return (
     <>
       <div className="flex flex-col items-center gap-2 sm:gap-4">
-        {/* 後手エリア */}
-        <div className="w-full max-w-md mb-2">
-          <CapturedPieces
-            player="white"
-            pieces={gameState.captured.white}
-            onPieceClick={selectCapturedPiece}
-          />
-        </div>
-
         {/* 筋のラベル（横軸: 9-1） */}
         <div className="flex">
           <div className="w-6 sm:w-8" /> {/* 段ラベル用のスペース */}
@@ -212,15 +201,6 @@ export function Board() {
               </div>
             ))}
           </div>
-        </div>
-
-        {/* 先手エリア */}
-        <div className="w-full max-w-md mt-2">
-          <CapturedPieces
-            player="black"
-            pieces={gameState.captured.black}
-            onPieceClick={selectCapturedPiece}
-          />
         </div>
       </div>
 

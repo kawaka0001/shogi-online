@@ -1,11 +1,11 @@
 /**
  * ゲーム結果表示コンポーネント
- * 詳細: #17
+ * 詳細: #17, パフォーマンス最適化
  */
 
 'use client';
 
-import React from 'react';
+import React, { memo } from 'react';
 import type { GameStatus, Player } from '@/types/shogi';
 import { getPlayerName } from '@/lib/utils/piece';
 
@@ -15,7 +15,7 @@ export type GameResultProps = {
   onNewGame: () => void;
 };
 
-export function GameResult({ gameStatus, currentTurn, onNewGame }: GameResultProps) {
+export const GameResult = memo(function GameResult({ gameStatus, currentTurn, onNewGame }: GameResultProps) {
   // ゲーム終了状態でない場合は何も表示しない
   if (gameStatus !== 'checkmate' && gameStatus !== 'resignation' && gameStatus !== 'draw' && gameStatus !== 'timeout') {
     return null;
@@ -78,4 +78,4 @@ export function GameResult({ gameStatus, currentTurn, onNewGame }: GameResultPro
       </div>
     </div>
   );
-}
+});

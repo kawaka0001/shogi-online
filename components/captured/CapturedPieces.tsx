@@ -1,18 +1,18 @@
 /**
  * 持ち駒表示コンポーネント
- * 詳細: #5, #11, #18
+ * 詳細: #5, #11, #18, パフォーマンス最適化
  */
 
 'use client';
 
-import React from 'react';
+import React, { memo } from 'react';
 import type { CapturedPiecesProps } from '@/types/shogi';
 import { PIECE_NAMES_JA } from '@/lib/game/constants';
 
 // 持ち駒として表示する駒の順序（玉は持ち駒にならない）
 const PIECE_ORDER = ['rook', 'bishop', 'gold', 'silver', 'knight', 'lance', 'pawn'] as const;
 
-export function CapturedPieces({ player, pieces, onPieceClick }: CapturedPiecesProps) {
+export const CapturedPieces = memo(function CapturedPieces({ player, pieces, onPieceClick }: CapturedPiecesProps) {
   const hasCapturedPieces = PIECE_ORDER.some(pieceType => pieces[pieceType] > 0);
 
   return (
@@ -68,4 +68,4 @@ export function CapturedPieces({ player, pieces, onPieceClick }: CapturedPiecesP
       )}
     </div>
   );
-}
+});

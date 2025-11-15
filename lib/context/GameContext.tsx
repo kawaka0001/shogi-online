@@ -26,7 +26,8 @@ type GameAction =
   | { type: 'NEW_GAME' }
   | { type: 'RESIGN' }
   | { type: 'UNDO' }
-  | { type: 'SET_GAME_STATE'; payload: GameState };
+  | { type: 'SET_GAME_STATE'; payload: GameState }
+  | { type: 'CLEAR_ERROR' };  // 詳細: エラーUI実装
 
 // ========================================
 // Context Type
@@ -45,6 +46,7 @@ type GameContextType = {
   newGame: () => void;
   resign: () => void;
   undo: () => void;
+  clearError: () => void;  // 詳細: エラーUI実装
 };
 
 // ========================================
@@ -280,28 +282,32 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const { payload } = action;
       const { pieceType, to } = payload;
 
-      // 玉は持ち駒にならない
+      // 玉は持ち駒にならない（詳細: エラーUI実装）
       if (pieceType === 'king') {
-        console.warn('King cannot be dropped');
-        return state;
-      }
-
-      // 合法手かチェック
-      const validation = canDropPiece(state.board, pieceType, to, state.currentTurn);
-      if (!validation.isValid) {
-        console.warn(`Invalid drop: ${validation.reason}`);
         return {
           ...state,
+          errorMessage: '玉を持ち駒として打つことはできません',
+        };
+      }
+
+      // 合法手かチェック（詳細: エラーUI実装）
+      const validation = canDropPiece(state.board, pieceType, to, state.currentTurn);
+      if (!validation.isValid) {
+        return {
+          ...state,
+          errorMessage: `不正な打ち方です: ${validation.reason}`,
           selectedCapturedPiece: null,
           validMoves: [],
         };
       }
 
-      // 持ち駒があるかチェック
+      // 持ち駒があるかチェック（詳細: エラーUI実装）
       const capturedPieces = state.captured[state.currentTurn];
       if (capturedPieces[pieceType as keyof typeof capturedPieces] === 0) {
-        console.warn('No captured piece to drop');
-        return state;
+        return {
+          ...state,
+          errorMessage: '持ち駒がありません',
+        };
       }
 
       // 新しい盤面を作成
@@ -387,6 +393,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return action.payload;
     }
 
+    case 'CLEAR_ERROR': {
+      // 詳細: エラーUI実装
+      return {
+        ...state,
+        errorMessage: null,
+      };
+    }
+
     default:
       return state;
   }
@@ -438,6 +452,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'UNDO' });
   }, []);
 
+  const clearError = useCallback(() => {
+    dispatch({ type: 'CLEAR_ERROR' });
+  }, []);
+
   const value: GameContextType = {
     gameState,
     dispatch,
@@ -449,6 +467,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     newGame,
     resign,
     undo,
+    clearError,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

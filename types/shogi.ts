@@ -146,6 +146,7 @@ export type GameState = {
   validMoves: Position[];
   selectedCapturedPiece: PieceType | null;  // #12: 選択中の持ち駒
   lastMove: Move | null;
+  errorMessage: string | null;  // 詳細: エラーUI実装
 };
 
 // ========================================

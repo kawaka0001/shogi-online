@@ -1,16 +1,20 @@
-// 詳細: #6, #7, #18
+// 詳細: #6, #7, #18, エラーUI実装
 'use client';
 
 import { Board } from '@/components/board/Board';
 import { CapturedPieces } from '@/components/captured/CapturedPieces';
 import { GameControl } from '@/components/control/GameControl';
+import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { GameProvider, useGame } from '@/lib/context/GameContext';
 
 function GameContent() {
-  const { gameState, newGame, resign } = useGame();
+  const { gameState, newGame, resign, clearError } = useGame();
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-amber-50 to-amber-100 py-4 sm:py-8">
+      {/* エラーメッセージ表示 */}
+      <ErrorMessage message={gameState.errorMessage} onClose={clearError} />
+
       <div className="container mx-auto px-4">
         {/* ヘッダー */}
         <div className="text-center mb-6 sm:mb-8">

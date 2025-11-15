@@ -1,11 +1,11 @@
 /**
  * マス（Square）コンポーネント
- * 詳細: #7
+ * 詳細: #7, パフォーマンス最適化
  */
 
 'use client';
 
-import React from 'react';
+import React, { memo } from 'react';
 import type { SquareProps } from '@/types/shogi';
 import { Piece } from '@/components/piece/Piece';
 
@@ -28,7 +28,7 @@ import { Piece } from '@/components/piece/Piece';
  * @param isLastMove - 最後に動いた駒があるマスかどうか
  * @param onClick - マスクリック時のハンドラ
  */
-export function Square({
+export const Square = memo(function Square({
   position,
   piece,
   isSelected,
@@ -107,4 +107,4 @@ export function Square({
       {piece && <Piece piece={piece} size="medium" isDraggable={false} />}
     </button>
   );
-}
+});
