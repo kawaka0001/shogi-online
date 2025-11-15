@@ -77,13 +77,13 @@ export const Square = memo(function Square({
         ${bgColor}
         ${additionalStyles}
         ${hoverStyles}
-        w-full h-full
-        aspect-square
+        w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16
         flex items-center justify-center
         border border-gray-400
         focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1
         cursor-pointer
         relative
+        flex-shrink-0
       `}
       aria-label={ariaLabel}
       aria-pressed={isSelected}
