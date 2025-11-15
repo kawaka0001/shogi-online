@@ -10,6 +10,7 @@
 
 import React, { createContext, useContext, useReducer, useCallback } from 'react';
 import type { GameState, Position, Move, PieceType } from '@/types/shogi';
+import { isCapturablePieceType } from '@/types/shogi';
 import { createInitialGameState } from '../game/initial-state';
 import { getValidMoves, canDropPiece, isInCheck, isCheckmate } from '../game/rules';
 
@@ -173,14 +174,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       // #12: 持ち駒を選択
       const { payload: pieceType } = action;
 
-      // 玉は持ち駒にならない
-      if (pieceType === 'king') {
+      // 型ガードで安全にチェック（詳細: 型安全性強化）
+      if (!isCapturablePieceType(pieceType)) {
         return state;
       }
 
-      // 持ち駒があるかチェック
+      // 持ち駒があるかチェック（この時点でpieceTypeはCapturablePieceType）
       const capturedPieces = state.captured[state.currentTurn];
-      if (capturedPieces[pieceType as keyof typeof capturedPieces] === 0) {
+      if (capturedPieces[pieceType] === 0) {
         return state;
       }
 
@@ -282,11 +283,22 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const { payload } = action;
       const { pieceType, to } = payload;
 
-      // 玉は持ち駒にならない（詳細: エラーUI実装）
-      if (pieceType === 'king') {
+      // 型ガードで安全にチェック（詳細: 型安全性強化）
+      if (!isCapturablePieceType(pieceType)) {
         return {
           ...state,
           errorMessage: '玉を持ち駒として打つことはできません',
+        };
+      }
+
+      // 持ち駒があるかチェック（この時点でpieceTypeはCapturablePieceType）
+      const capturedPieces = state.captured[state.currentTurn];
+      const count = capturedPieces[pieceType]; // 型安全
+
+      if (count === 0) {
+        return {
+          ...state,
+          errorMessage: '持ち駒がありません',
         };
       }
 
@@ -301,15 +313,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         };
       }
 
-      // 持ち駒があるかチェック（詳細: エラーUI実装）
-      const capturedPieces = state.captured[state.currentTurn];
-      if (capturedPieces[pieceType as keyof typeof capturedPieces] === 0) {
-        return {
-          ...state,
-          errorMessage: '持ち駒がありません',
-        };
-      }
-
       // 新しい盤面を作成
       const newBoard = state.board.map(row => [...row]);
       newBoard[to.rank][to.file] = {
@@ -318,12 +321,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         isPromoted: false,
       };
 
-      // 持ち駒から減らす
+      // 持ち駒から減らす（型安全）
       const newCaptured = {
         ...state.captured,
         [state.currentTurn]: {
           ...capturedPieces,
-          [pieceType]: capturedPieces[pieceType as keyof typeof capturedPieces] - 1,
+          [pieceType]: count - 1,
         },
       };
 

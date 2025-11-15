@@ -93,6 +93,20 @@ export type CapturedPieces = {
   white: PlayerCapturedPieces;
 };
 
+/**
+ * 持ち駒として使える駒の型（玉を除く）
+ * 詳細: 型安全性強化
+ */
+export type CapturablePieceType = Exclude<PieceType, 'king'>;
+
+/**
+ * 型ガード関数: PieceTypeがCapturablePieceTypeかどうかを判定
+ * 詳細: 型安全性強化
+ */
+export function isCapturablePieceType(type: PieceType): type is CapturablePieceType {
+  return type !== 'king';
+}
+
 // ========================================
 // 移動・手
 // ========================================
