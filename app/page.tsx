@@ -56,6 +56,7 @@ function GameContent() {
             <CapturedPieces
               player="white"
               pieces={gameState.captured.white}
+              selectedPiece={gameState.currentTurn === 'white' ? gameState.selectedCapturedPiece : null}
               onPieceClick={handleWhiteCapturedPieceClick}
             />
           </div>
@@ -70,6 +71,7 @@ function GameContent() {
             <CapturedPieces
               player="black"
               pieces={gameState.captured.black}
+              selectedPiece={gameState.currentTurn === 'black' ? gameState.selectedCapturedPiece : null}
               onPieceClick={handleBlackCapturedPieceClick}
             />
           </div>
