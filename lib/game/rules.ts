@@ -1,6 +1,6 @@
 /**
  * 将棋の駒の移動ルール
- * 詳細: #4, #8, #10
+ * 詳細: #4, #8, #10, #13, #17
  */
 
 import type { Board, Piece, Player, Position, PieceType } from '@/types/shogi';
@@ -843,4 +843,60 @@ export function isInCheck(board: Board, player: Player): boolean {
   if (!kingPos) return false;
 
   return isPositionUnderAttack(board, kingPos, player);
+}
+
+// ========================================
+// 詰み判定 (#17)
+// ========================================
+
+/**
+ * 指定されたプレイヤーが詰んでいるかチェック
+ * 詳細: #17
+ *
+ * 詰みの条件:
+ * 1. 王手されている
+ * 2. 玉が逃げられない
+ * 3. 王手している駒を取れない
+ * 4. 王手を他の駒で遮れない
+ *
+ * @param board - 現在の盤面
+ * @param player - チェックするプレイヤー
+ * @returns 詰んでいる場合 true
+ */
+export function isCheckmate(board: Board, player: Player): boolean {
+  // まず王手されているかチェック
+  if (!isInCheck(board, player)) {
+    return false;
+  }
+
+  // プレイヤーの全ての駒をチェック
+  for (let rank = 0; rank < 9; rank++) {
+    for (let file = 0; file < 9; file++) {
+      const piece = board[rank][file];
+      if (piece && piece.owner === player) {
+        const from: Position = { rank, file };
+        const moves = getValidMoves(board, from, piece);
+
+        // 各移動可能な手をシミュレート
+        for (const to of moves) {
+          // 一時的に盤面をコピーして手を試す
+          const testBoard = board.map(row => [...row]);
+          const capturedPiece = testBoard[to.rank][to.file];
+
+          // 駒を移動
+          testBoard[to.rank][to.file] = piece;
+          testBoard[from.rank][from.file] = null;
+
+          // この手で王手が解除されるかチェック
+          if (!isInCheck(testBoard, player)) {
+            // 王手を回避できる手が見つかった
+            return false;
+          }
+        }
+      }
+    }
+  }
+
+  // 全ての手を試しても王手を回避できない = 詰み
+  return true;
 }

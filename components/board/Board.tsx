@@ -1,6 +1,6 @@
 /**
  * 将棋盤コンポーネント
- * 詳細: #5, #6, #7, #12, #13
+ * 詳細: #5, #6, #7, #12, #13, #17
  */
 
 'use client';
@@ -9,6 +9,7 @@ import React, { useState } from 'react';
 import { Square } from './Square';
 import { CapturedPieces } from '@/components/captured/CapturedPieces';
 import { PromotionDialog } from '@/components/game/PromotionDialog';
+import { GameResult } from '@/components/game/GameResult';
 import { useGame } from '@/lib/context/GameContext';
 import { shouldOfferPromotion, mustPromote } from '@/lib/game/rules';
 import { BOARD_SIZE } from '@/lib/game/constants';
@@ -25,6 +26,7 @@ export function Board() {
     selectSquare: contextSelectSquare,
     selectCapturedPiece,
     movePiece,
+    newGame,
   } = useGame();
 
   // 成り選択ダイアログの状態管理 (#13)
@@ -229,6 +231,13 @@ export function Board() {
         player={promotionState.piece?.owner || null}
         onPromote={handlePromote}
         onNotPromote={handleNotPromote}
+      />
+
+      {/* ゲーム結果モーダル (#17) */}
+      <GameResult
+        gameStatus={gameState.gameStatus}
+        currentTurn={gameState.currentTurn}
+        onNewGame={newGame}
       />
     </>
   );

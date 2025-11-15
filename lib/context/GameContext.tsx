@@ -1,6 +1,6 @@
 /**
  * ゲーム状態管理用のReact Context
- * 詳細: #5
+ * 詳細: #5, #17
  *
  * React Context APIを使用した状態管理
  * 将来的にZustandへの移行も検討
@@ -11,7 +11,7 @@
 import React, { createContext, useContext, useReducer, useCallback } from 'react';
 import type { GameState, Position, Move, PieceType } from '@/types/shogi';
 import { createInitialGameState } from '../game/initial-state';
-import { getValidMoves, canDropPiece, isInCheck } from '../game/rules';
+import { getValidMoves, canDropPiece, isInCheck, isCheckmate } from '../game/rules';
 
 // ========================================
 // Action Types
@@ -126,7 +126,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
           // 王手チェック (#16)
           const inCheck = isInCheck(newBoard, nextTurn);
-          const newGameStatus = inCheck ? 'check' : 'playing';
+
+          // 詰みチェック (#17)
+          const inCheckmate = inCheck && isCheckmate(newBoard, nextTurn);
+          const newGameStatus = inCheckmate ? 'checkmate' : (inCheck ? 'check' : 'playing');
 
           return {
             ...state,
@@ -253,7 +256,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       // 王手チェック (#16)
       const inCheck = isInCheck(newBoard, nextTurn);
-      const newGameStatus = inCheck ? 'check' : 'playing';
+
+      // 詰みチェック (#17)
+      const inCheckmate = inCheck && isCheckmate(newBoard, nextTurn);
+      const newGameStatus = inCheckmate ? 'checkmate' : (inCheck ? 'check' : 'playing');
 
       return {
         ...state,
@@ -315,6 +321,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         },
       };
 
+      // 手番を交代
+      const nextTurn = state.currentTurn === 'black' ? 'white' : 'black';
+
       // 移動履歴に追加
       const move: Move = {
         type: 'drop',
@@ -327,16 +336,25 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         timestamp: new Date(),
       };
 
+      // 王手チェック (#16)
+      const inCheck = isInCheck(newBoard, nextTurn);
+
+      // 詰みチェック (#17)
+      const inCheckmate = inCheck && isCheckmate(newBoard, nextTurn);
+      const newGameStatus = inCheckmate ? 'checkmate' : (inCheck ? 'check' : 'playing');
+
       return {
         ...state,
         board: newBoard,
         captured: newCaptured,
-        currentTurn: state.currentTurn === 'black' ? 'white' : 'black',
+        currentTurn: nextTurn,
         moveHistory: [...state.moveHistory, move],
         selectedPosition: null,
         selectedCapturedPiece: null,
         validMoves: [],
         lastMove: move,
+        isCheck: inCheck,
+        gameStatus: newGameStatus,
       };
     }
 
