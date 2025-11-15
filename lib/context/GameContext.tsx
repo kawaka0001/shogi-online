@@ -126,19 +126,18 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         // 合法手を計算 (#7, #8, #9, #10)
         let validMoves = getValidMoves(state.board, position, piece);
 
-        // #16: 王手中は、王手を回避する手のみを有効にする
-        if (state.isCheck) {
-          validMoves = validMoves.filter(move => {
-            // 仮想的に駒を移動してみる
-            const testBoard = state.board.map(row => [...row]);
-            testBoard[move.rank][move.file] = piece;
-            testBoard[position.rank][position.file] = null;
+        // #16: ピンされた駒のチェック（王手中でなくても常に実行）
+        // 移動後に王手になる手を除外（王手放置の防止）
+        validMoves = validMoves.filter(move => {
+          // 仮想的に駒を移動してみる
+          const testBoard = state.board.map(row => [...row]);
+          testBoard[move.rank][move.file] = piece;
+          testBoard[position.rank][position.file] = null;
 
-            // 移動後に王手が解消されるかチェック
-            const stillInCheck = isInCheck(testBoard, state.currentTurn);
-            return !stillInCheck; // 王手が解消される手のみ残す
-          });
-        }
+          // 移動後に王手になっていないかチェック
+          const wouldBeInCheck = isInCheck(testBoard, state.currentTurn);
+          return !wouldBeInCheck; // 王手にならない手のみ残す
+        });
 
         return {
           ...state,
@@ -179,22 +178,18 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           const position: Position = { rank, file };
           const validation = canDropPiece(state.board, pieceType, position, state.currentTurn);
           if (validation.isValid) {
-            // #16: 王手中は、王手を回避する手のみを有効にする
-            if (state.isCheck) {
-              // 仮想的に駒を打ってみる
-              const testBoard = state.board.map(row => [...row]);
-              testBoard[position.rank][position.file] = {
-                type: pieceType,
-                owner: state.currentTurn,
-                isPromoted: false,
-              };
+            // #16: 王手放置にならないかチェック（常に実行）
+            // 仮想的に駒を打ってみる
+            const testBoard = state.board.map(row => [...row]);
+            testBoard[position.rank][position.file] = {
+              type: pieceType,
+              owner: state.currentTurn,
+              isPromoted: false,
+            };
 
-              // 駒を打った後に王手が解消されるかチェック
-              const stillInCheck = isInCheck(testBoard, state.currentTurn);
-              if (!stillInCheck) {
-                validMoves.push(position);
-              }
-            } else {
+            // 駒を打った後に王手になっていないかチェック
+            const wouldBeInCheck = isInCheck(testBoard, state.currentTurn);
+            if (!wouldBeInCheck) {
               validMoves.push(position);
             }
           }
