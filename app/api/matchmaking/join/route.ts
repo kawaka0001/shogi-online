@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
+      console.error('[Matchmaking] 認証エラー:', authError);
       return NextResponse.json(
         {
           success: false,
@@ -26,6 +27,8 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    console.log('[Matchmaking] ユーザーがマッチング参加:', user.id);
 
     // すでにマッチング待機中かチェック
     const { data: existingQueue, error: checkError } = await supabase
@@ -36,6 +39,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (existingQueue) {
+      console.log('[Matchmaking] すでに待機中:', existingQueue.id);
       return NextResponse.json({
         status: 'waiting',
         message: 'すでにマッチング待機中です'
@@ -51,6 +55,8 @@ export async function POST(request: NextRequest) {
       .order('created_at', { ascending: true })
       .limit(1);
 
+    console.log('[Matchmaking] 待機中のユーザー検索結果:', waitingUsers?.length ?? 0);
+
     if (waitingError) {
       console.error('待機中ユーザー取得エラー:', waitingError);
       return NextResponse.json(
@@ -64,6 +70,7 @@ export async function POST(request: NextRequest) {
 
     // 待機中のユーザーがいない場合は、自分を待機キューに追加
     if (!waitingUsers || waitingUsers.length === 0) {
+      console.log('[Matchmaking] 待機中のユーザーなし - キューに追加');
       const { data: newQueueEntry, error: insertError } = await supabase
         .from('matchmaking_queue')
         .insert({
@@ -74,7 +81,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (insertError) {
-        console.error('キュー追加エラー:', insertError);
+        console.error('[Matchmaking] キュー追加エラー:', insertError);
         return NextResponse.json(
           {
             success: false,
@@ -84,6 +91,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      console.log('[Matchmaking] キュー追加成功:', newQueueEntry.id);
       return NextResponse.json({
         status: 'waiting',
         message: 'マッチング相手を待っています'
@@ -92,6 +100,7 @@ export async function POST(request: NextRequest) {
 
     // マッチング成立 - 待機中のユーザーとマッチング
     const opponentQueue = waitingUsers[0];
+    console.log('[Matchmaking] マッチング成立！ 相手:', opponentQueue.user_id);
 
     // ランダムで先手・後手を決定
     const isCurrentUserBlack = Math.random() < 0.5;
@@ -116,7 +125,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (gameError) {
-      console.error('ゲーム作成エラー:', gameError);
+      console.error('[Matchmaking] ゲーム作成エラー:', gameError);
       return NextResponse.json(
         {
           success: false,
@@ -126,7 +135,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('[Matchmaking] ゲーム作成成功:', newGame.id);
+
     // 両方のユーザーのマッチングキューをマッチ済みに更新
+    console.log('[Matchmaking] キュー更新開始');
     const updatePromises = [
       // 相手のキューを更新
       supabase
@@ -152,13 +164,17 @@ export async function POST(request: NextRequest) {
     const results = await Promise.all(updatePromises);
 
     // エラーチェック
-    for (const result of results) {
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
       if (result.error) {
-        console.error('キュー更新エラー:', result.error);
+        console.error(`[Matchmaking] キュー更新エラー [${i}]:`, result.error);
         // ゲームは作成済みなので、エラーでもゲームIDを返す
+      } else {
+        console.log(`[Matchmaking] キュー更新成功 [${i}]`);
       }
     }
 
+    console.log('[Matchmaking] マッチング完了 - ゲームID:', newGame.id);
     return NextResponse.json({
       status: 'matched',
       gameId: newGame.id,

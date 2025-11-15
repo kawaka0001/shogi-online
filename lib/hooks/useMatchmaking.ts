@@ -61,11 +61,18 @@ export function useMatchmaking() {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('Matchmaking update:', payload)
+          console.log('[useMatchmaking] Realtime更新イベント:', payload.eventType, payload)
 
           // statusがmatchedでgame_idが存在する場合、マッチング成立
           const newQueue = payload.new as Tables<'matchmaking_queue'>
+          console.log('[useMatchmaking] 新しいキュー状態:', {
+            status: newQueue?.status,
+            game_id: newQueue?.game_id,
+            user_id: newQueue?.user_id
+          });
+
           if (newQueue && newQueue.status === 'matched' && newQueue.game_id) {
+            console.log('[useMatchmaking] Realtimeでマッチング成立検知:', newQueue.game_id);
             setState({
               status: 'matched',
               gameId: newQueue.game_id,
@@ -91,6 +98,7 @@ export function useMatchmaking() {
    */
   const joinMatchmaking = useCallback(async () => {
     if (!user) {
+      console.error('[useMatchmaking] 認証エラー: ユーザーが存在しません');
       setState({
         status: 'error',
         gameId: null,
@@ -99,6 +107,7 @@ export function useMatchmaking() {
       return
     }
 
+    console.log('[useMatchmaking] マッチング参加開始:', user.id);
     setIsLoading(true)
     setState({
       status: 'searching',
@@ -115,6 +124,7 @@ export function useMatchmaking() {
       })
 
       const data = await response.json()
+      console.log('[useMatchmaking] API応答:', data);
 
       if (!response.ok) {
         throw new Error(data.error || 'マッチング参加に失敗しました')
@@ -123,6 +133,7 @@ export function useMatchmaking() {
       // 即座にマッチングした場合
       // 詳細: #52
       if (data.status === 'matched' && data.gameId) {
+        console.log('[useMatchmaking] 即座にマッチング成立:', data.gameId);
         setState({
           status: 'matched',
           gameId: data.gameId,
@@ -130,6 +141,7 @@ export function useMatchmaking() {
         })
       } else {
         // 待機中（Realtime Subscriptionで通知を待つ）
+        console.log('[useMatchmaking] 待機中 - Realtime監視開始');
         setState({
           status: 'searching',
           gameId: null,
@@ -137,7 +149,7 @@ export function useMatchmaking() {
         })
       }
     } catch (error) {
-      console.error('Matchmaking join error:', error)
+      console.error('[useMatchmaking] エラー:', error)
       setState({
         status: 'error',
         gameId: null,
