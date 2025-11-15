@@ -127,3 +127,40 @@ describe('validateDrop (駒を打つ際の禁じ手判定)', () => {
     expect(result.reason).toContain('行き所のない駒');
   });
 });
+
+// ========================================
+// 打ち歩詰めのテスト
+// ========================================
+
+describe('isUchifuzume (打ち歩詰め判定)', () => {
+  test('歩を打って即詰みになる場合は打ち歩詰めと判定される', () => {
+    const board: Board = Array(9).fill(null).map(() => Array(9).fill(null));
+
+    // 簡単な打ち歩詰めの局面を作成
+    // 後手の玉を1段4筋に配置
+    board[0][4] = { type: 'king', owner: 'white', isPromoted: false };
+
+    // 玉の周りを先手の駒で囲む（逃げ場をなくす）
+    board[0][3] = { type: 'gold', owner: 'black', isPromoted: false };  // 左
+    board[0][5] = { type: 'gold', owner: 'black', isPromoted: false };  // 右
+    board[1][3] = { type: 'silver', owner: 'black', isPromoted: false }; // 左下
+    board[1][5] = { type: 'silver', owner: 'black', isPromoted: false }; // 右下
+
+    // 2段目4筋に歩を打って即詰みにしようとする → 打ち歩詰め
+    const result = isUchifuzume(board, { rank: 1, file: 4 }, 'black');
+
+    expect(result).toBe(true);
+  });
+
+  test('歩を打っても詰みにならない場合は打ち歩詰めではない', () => {
+    const board: Board = Array(9).fill(null).map(() => Array(9).fill(null));
+
+    // 後手の玉を配置（逃げ場がある）
+    board[0][4] = { type: 'king', owner: 'white', isPromoted: false };
+
+    // 歩を打つ位置
+    const result = isUchifuzume(board, { rank: 1, file: 4 }, 'black');
+
+    expect(result).toBe(false);
+  });
+});
