@@ -1,6 +1,6 @@
 /**
- * 駒の成りを選択するダイアログ
- * 詳細: #13, #18, パフォーマンス最適化
+ * 駒の成りを選択するダイアログ - モダンデザイン
+ * 詳細: #13, #18, パフォーマンス最適化, UI Redesign
  */
 
 'use client';
@@ -29,7 +29,7 @@ export const PromotionDialog = memo(function PromotionDialog({
     return null;
   }
 
-  // 型ガードで安全性を確保 - 詳細: #18
+  // 型ガードで安全性を確保
   if (!isPromotablePieceType(pieceType)) {
     return null;
   }
@@ -39,39 +39,67 @@ export const PromotionDialog = memo(function PromotionDialog({
   const playerName = player === 'black' ? '先手' : '後手';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 animate-fadeIn">
-      {/* 詳細: #18 レスポンシブ対応 */}
-      <div className="bg-white rounded-lg shadow-xl p-4 sm:p-6 md:p-8 max-w-xs sm:max-w-sm md:max-w-md w-full mx-4 animate-scaleIn">
-        <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 mb-3 sm:mb-4 text-center">
-          駒を成りますか？
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn">
+      {/* モダンモーダル */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-strong p-5 sm:p-6 md:p-8 max-w-xs sm:max-w-sm md:max-w-md w-full mx-4 animate-slideUp border border-slate-200 dark:border-slate-700">
+        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-4 sm:mb-5 text-center">
+          成りますか？
         </h2>
 
-        <div className="text-center mb-4 sm:mb-6">
-          <p className="text-sm sm:text-base text-gray-700 mb-1 sm:mb-2">
-            {playerName}の{pieceName}
+        <div className="text-center mb-5 sm:mb-6 md:mb-7">
+          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 mb-2 sm:mb-3">
+            {playerName}の駒
           </p>
-          <p className="text-base sm:text-lg md:text-xl font-semibold text-blue-600">
-            {pieceName} → {promotedName}
-          </p>
+          <div className="flex items-center justify-center gap-3 sm:gap-4">
+            <span
+              className="text-3xl sm:text-4xl md:text-5xl font-bold text-slate-900 dark:text-slate-100 font-serif"
+              style={{
+                fontFamily: 'var(--font-noto-serif-jp), "Noto Serif JP", serif',
+                textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+              }}
+            >
+              {pieceName}
+            </span>
+            <span className="text-2xl sm:text-3xl text-shogi-accent-primary">→</span>
+            <span
+              className="text-3xl sm:text-4xl md:text-5xl font-bold text-shogi-accent-primary font-serif"
+              style={{
+                fontFamily: 'var(--font-noto-serif-jp), "Noto Serif JP", serif',
+                textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+              }}
+            >
+              {promotedName}
+            </span>
+          </div>
         </div>
 
         <div className="flex gap-2 sm:gap-3 md:gap-4">
           <button
             onClick={onPromote}
-            className="flex-1 px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors text-sm sm:text-base md:text-lg"
+            className="flex-1 px-4 py-3 sm:px-5 sm:py-3.5 md:px-6 md:py-4
+                       bg-shogi-accent-primary text-white font-bold rounded-xl
+                       hover:bg-shogi-accent-primary/90 active:scale-95
+                       transition-all duration-200 shadow-medium hover:shadow-strong
+                       focus:outline-none focus:ring-2 focus:ring-shogi-accent-primary focus:ring-offset-2
+                       text-sm sm:text-base md:text-lg"
           >
             成る
           </button>
           <button
             onClick={onNotPromote}
-            className="flex-1 px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 bg-gray-300 text-gray-800 font-semibold rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors text-sm sm:text-base md:text-lg"
+            className="flex-1 px-4 py-3 sm:px-5 sm:py-3.5 md:px-6 md:py-4
+                       bg-slate-300 dark:bg-slate-600 text-slate-800 dark:text-slate-100 font-bold rounded-xl
+                       hover:bg-slate-400 dark:hover:bg-slate-500 active:scale-95
+                       transition-all duration-200 shadow-soft hover:shadow-medium
+                       focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
+                       text-sm sm:text-base md:text-lg"
           >
             成らない
           </button>
         </div>
 
-        <p className="text-xs sm:text-sm text-gray-500 mt-3 sm:mt-4 text-center">
-          成った駒は元に戻せません
+        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-4 sm:mt-5 text-center">
+          ⚠️ 成った駒は元に戻せません
         </p>
       </div>
     </div>
