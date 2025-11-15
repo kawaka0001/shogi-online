@@ -8,6 +8,8 @@
 
 ### 使い方
 
+#### 標準モード（単一タスク）
+
 ```bash
 # 自動開発ループを開始
 ./auto-dev.sh
@@ -15,6 +17,29 @@
 # ドライランモード（実行せずに確認）
 ./auto-dev.sh --dry-run
 ```
+
+#### 並列開発モード（git worktree）
+
+**独立したIssueを4つ同時に開発:**
+
+```bash
+# 1. 並列開発環境をセットアップ
+./setup-parallel-dev.sh
+
+# 2. 各worktreeで別々のターミナルを開く
+# Terminal 1: cd ../shogi-issue-6 && claude
+# Terminal 2: cd ../shogi-issue-8 && claude
+# Terminal 3: cd ../shogi-issue-9 && claude
+# Terminal 4: cd ../shogi-issue-10 && claude
+
+# 3. 完了後にクリーンアップ
+./cleanup-parallel-dev.sh
+```
+
+**メリット:**
+- 開発速度が3〜4倍に向上
+- 各Issueで独立したコンテキスト
+- Claude Codeの待ち時間ゼロ
 
 ### ワークフロー（ほぼ完全自動）
 
@@ -74,9 +99,14 @@ npm test
 
 ## GitLab Flow
 
-- `main`: 開発ブランチ
+- `main`: 本番環境（デプロイ用）
+- `development`: 開発統合ブランチ
 - `feature/issue-{number}`: 機能開発ブランチ
-- `production`: 本番デプロイブランチ（後で作成）
+
+開発フロー:
+```
+feature/issue-N → (PR) → development → (リリース時PR) → main
+```
 
 ## リポジトリ
 

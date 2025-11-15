@@ -32,3 +32,19 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# backup files
+*.backup
+
+# CLAUDE.md原則: ドキュメントはIssue本文で管理
+.research/
+docs/
+
+# IDE設定
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
