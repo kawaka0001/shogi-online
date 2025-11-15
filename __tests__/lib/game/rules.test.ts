@@ -1,11 +1,13 @@
 // 金・銀・玉の移動ルールのテスト
-// 詳細: #9
+// 詳細: #9, #16
 
 import {
   getKingMoves,
   getGoldMoves,
   getSilverMoves,
   getValidMoves,
+  isInCheck,
+  findKingPosition,
 } from '@/lib/game/rules';
 import { Board, Piece, Position } from '@/types/shogi';
 
@@ -272,6 +274,85 @@ describe('金・銀・玉の移動ルール', () => {
 
       board[from.rank][from.file] = silver;
       expect(getValidMoves(board, from, silver)).toHaveLength(5);
+    });
+  });
+
+  // #16: 王手検出のテスト
+  describe('王手検出（Check Detection）', () => {
+    test('玉の位置を正しく検出できる', () => {
+      const board = createEmptyBoard();
+      const blackKing: Piece = { type: 'king', owner: 'black', isPromoted: false };
+      const whiteKing: Piece = { type: 'king', owner: 'white', isPromoted: false };
+
+      board[8][4] = blackKing; // 先手玉: 5九
+      board[0][4] = whiteKing; // 後手玉: 5一
+
+      const blackKingPos = findKingPosition(board, 'black');
+      const whiteKingPos = findKingPosition(board, 'white');
+
+      expect(blackKingPos).toEqual({ rank: 8, file: 4 });
+      expect(whiteKingPos).toEqual({ rank: 0, file: 4 });
+    });
+
+    test('飛車による王手を検出できる', () => {
+      const board = createEmptyBoard();
+      const blackKing: Piece = { type: 'king', owner: 'black', isPromoted: false };
+      const whiteRook: Piece = { type: 'rook', owner: 'white', isPromoted: false };
+
+      board[8][4] = blackKing; // 先手玉: 5九
+      board[0][4] = whiteRook; // 後手飛車: 5一（縦に王手）
+
+      expect(isInCheck(board, 'black')).toBe(true);
+      expect(isInCheck(board, 'white')).toBe(false);
+    });
+
+    test('角による王手を検出できる', () => {
+      const board = createEmptyBoard();
+      const blackKing: Piece = { type: 'king', owner: 'black', isPromoted: false };
+      const whiteBishop: Piece = { type: 'bishop', owner: 'white', isPromoted: false };
+
+      board[8][4] = blackKing;  // 先手玉: 5九
+      board[5][1] = whiteBishop; // 後手角: 2六（斜めに王手）
+
+      expect(isInCheck(board, 'black')).toBe(true);
+      expect(isInCheck(board, 'white')).toBe(false);
+    });
+
+    test('歩による王手を検出できる', () => {
+      const board = createEmptyBoard();
+      const blackKing: Piece = { type: 'king', owner: 'black', isPromoted: false };
+      const whitePawn: Piece = { type: 'pawn', owner: 'white', isPromoted: false };
+
+      board[8][4] = blackKing; // 先手玉: 5九
+      board[7][4] = whitePawn; // 後手歩: 5八（1マス前に王手）
+
+      expect(isInCheck(board, 'black')).toBe(true);
+      expect(isInCheck(board, 'white')).toBe(false);
+    });
+
+    test('駒が間にある場合は王手にならない', () => {
+      const board = createEmptyBoard();
+      const blackKing: Piece = { type: 'king', owner: 'black', isPromoted: false };
+      const blackGold: Piece = { type: 'gold', owner: 'black', isPromoted: false };
+      const whiteRook: Piece = { type: 'rook', owner: 'white', isPromoted: false };
+
+      board[8][4] = blackKing; // 先手玉: 5九
+      board[4][4] = blackGold; // 先手金: 5五（遮っている）
+      board[0][4] = whiteRook; // 後手飛車: 5一
+
+      expect(isInCheck(board, 'black')).toBe(false);
+    });
+
+    test('王手がかかっていない通常の局面', () => {
+      const board = createEmptyBoard();
+      const blackKing: Piece = { type: 'king', owner: 'black', isPromoted: false };
+      const whiteKing: Piece = { type: 'king', owner: 'white', isPromoted: false };
+
+      board[8][4] = blackKing; // 先手玉: 5九
+      board[0][4] = whiteKing; // 後手玉: 5一
+
+      expect(isInCheck(board, 'black')).toBe(false);
+      expect(isInCheck(board, 'white')).toBe(false);
     });
   });
 });
