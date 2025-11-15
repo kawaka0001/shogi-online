@@ -50,6 +50,14 @@ function GameContent() {
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 py-3 sm:py-4 md:py-6 lg:py-8">
       {/* ヘッダーナビゲーション - 右上固定 */}
       <div className="fixed top-4 right-4 z-40 flex gap-2">
+        {user && (
+          <Link
+            href="/matchmaking"
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
+          >
+            オンライン対戦
+          </Link>
+        )}
         {user ? (
           <Link
             href="/profile"
