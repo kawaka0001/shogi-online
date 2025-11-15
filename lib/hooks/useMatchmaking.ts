@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/context/AuthContext'
 import type { RealtimeChannel } from '@supabase/supabase-js'
+import type { Tables } from '@/types/database'
 
 export type MatchmakingStatus = 'idle' | 'searching' | 'matched' | 'error'
 
@@ -48,12 +49,13 @@ export function useMatchmaking() {
     }
 
     // マッチング待機テーブルの変更を監視
+    // 詳細: #52
     const newChannel = supabase
       .channel(`matchmaking_${user.id}`)
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*', // INSERT/UPDATE両方を監視
           schema: 'public',
           table: 'matchmaking_queue',
           filter: `user_id=eq.${user.id}`,
@@ -61,16 +63,14 @@ export function useMatchmaking() {
         (payload) => {
           console.log('Matchmaking update:', payload)
 
-          // matched_withがnullでない場合、マッチング成立
-          if (payload.new && 'matched_with' in payload.new && payload.new.matched_with) {
-            // game_idを取得
-            if ('game_id' in payload.new && payload.new.game_id) {
-              setState({
-                status: 'matched',
-                gameId: payload.new.game_id as string,
-                error: null,
-              })
-            }
+          // statusがmatchedでgame_idが存在する場合、マッチング成立
+          const newQueue = payload.new as Tables<'matchmaking_queue'>
+          if (newQueue && newQueue.status === 'matched' && newQueue.game_id) {
+            setState({
+              status: 'matched',
+              gameId: newQueue.game_id,
+              error: null,
+            })
           }
         }
       )
@@ -121,7 +121,8 @@ export function useMatchmaking() {
       }
 
       // 即座にマッチングした場合
-      if (data.matched && data.gameId) {
+      // 詳細: #52
+      if (data.status === 'matched' && data.gameId) {
         setState({
           status: 'matched',
           gameId: data.gameId,
