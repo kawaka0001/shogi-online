@@ -1,4 +1,4 @@
-// 詳細: #6, #7, #13, #18, エラーUI実装
+// 詳細: #6, #7, #13, #18, #19, エラーUI実装
 'use client';
 
 import { useCallback, useMemo } from 'react';
@@ -9,10 +9,16 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { PromotionDialog } from '@/components/game/PromotionDialog';
 import { GameProvider, useGame } from '@/lib/context/GameContext';
+import { useAuth } from '@/lib/context/AuthContext';
 import type { PieceType } from '@/types/shogi';
+import Link from 'next/link';
+
+// 動的レンダリングを強制（静的生成を無効化）
+export const dynamic = 'force-dynamic';
 
 function GameContent() {
   const { gameState, newGame, resign, clearError, selectCapturedPiece, promote, notPromote } = useGame();
+  const { user } = useAuth();
 
   // 詳細: #18 - パフォーマンス最適化: ハンドラをuseCallbackでメモ化
   // 先手の持ち駒クリック処理（手番チェック付き）
@@ -42,8 +48,23 @@ function GameContent() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 py-3 sm:py-4 md:py-6 lg:py-8">
-      {/* テーマ切り替えボタン - 右上固定 */}
-      <div className="fixed top-4 right-4 z-40">
+      {/* ヘッダーナビゲーション - 右上固定 */}
+      <div className="fixed top-4 right-4 z-40 flex gap-2">
+        {user ? (
+          <Link
+            href="/profile"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+          >
+            プロフィール
+          </Link>
+        ) : (
+          <Link
+            href="/auth/signin"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+          >
+            ログイン
+          </Link>
+        )}
         <ThemeToggle />
       </div>
 
