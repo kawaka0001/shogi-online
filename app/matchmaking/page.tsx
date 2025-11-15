@@ -1,18 +1,18 @@
 // マッチング待機画面
-// 詳細: #20
+// 詳細: #20, #54
 
 'use client'
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useMatchmaking } from '@/lib/hooks/useMatchmaking'
+import { usePresenceMatchmaking } from '@/lib/hooks/usePresenceMatchmaking'
 import { useAuth } from '@/lib/context/AuthContext'
 import Link from 'next/link'
 
 export default function MatchmakingPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
-  const { state, joinMatchmaking, cancelMatchmaking, isLoading } = useMatchmaking()
+  const { state, startSearch, cancelSearch, isLoading, players } = usePresenceMatchmaking()
 
   // 未認証の場合はログインページへリダイレクト
   useEffect(() => {
@@ -92,7 +92,7 @@ export default function MatchmakingPage() {
                 マッチングが成立すると自動的にゲームが開始されます。
               </p>
               <button
-                onClick={joinMatchmaking}
+                onClick={startSearch}
                 disabled={isLoading}
                 className="w-full md:w-auto px-8 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold text-lg rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:transform-none"
               >
@@ -115,13 +115,16 @@ export default function MatchmakingPage() {
                 <br />
                 通常、数秒から数分で見つかります。
               </p>
+              <p className="text-sm text-slate-500 dark:text-slate-500">
+                現在 <strong>{players.length}</strong> 人が待機中です
+              </p>
               <div className="flex justify-center space-x-2 py-4">
                 <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
                 <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                 <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
               </div>
               <button
-                onClick={cancelMatchmaking}
+                onClick={cancelSearch}
                 disabled={isLoading}
                 className="w-full md:w-auto px-8 py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-semibold rounded-xl transition-colors duration-200 disabled:cursor-not-allowed"
               >
@@ -185,7 +188,7 @@ export default function MatchmakingPage() {
                 {state.error || '不明なエラーが発生しました'}
               </p>
               <button
-                onClick={joinMatchmaking}
+                onClick={startSearch}
                 disabled={isLoading}
                 className="w-full md:w-auto px-8 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold text-lg rounded-xl transition-colors duration-200 disabled:cursor-not-allowed"
               >
