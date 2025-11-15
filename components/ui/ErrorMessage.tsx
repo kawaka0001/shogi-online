@@ -1,11 +1,11 @@
 /**
  * エラーメッセージ表示コンポーネント
- * 詳細: エラーUI実装
+ * 詳細: エラーUI実装, #18 パフォーマンス最適化
  */
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, memo } from 'react';
 
 type ErrorMessageProps = {
   message: string | null;
@@ -26,7 +26,7 @@ type ErrorMessageProps = {
  *   onClose={() => clearError()}
  * />
  */
-export function ErrorMessage({ message, onClose }: ErrorMessageProps) {
+export const ErrorMessage = memo(function ErrorMessage({ message, onClose }: ErrorMessageProps) {
   // 5秒後に自動的にエラーメッセージをクリア
   useEffect(() => {
     if (message) {
@@ -88,4 +88,4 @@ export function ErrorMessage({ message, onClose }: ErrorMessageProps) {
       </div>
     </div>
   );
-}
+});

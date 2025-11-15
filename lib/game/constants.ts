@@ -51,12 +51,19 @@ export const JISHOGI_POINT_THRESHOLD = 24;
 // ========================================
 
 /**
+ * SFEN文字の型定義
+ * 詳細: #18
+ */
+type SFENChar = 'K' | 'R' | 'B' | 'G' | 'S' | 'N' | 'L' | 'P';
+
+/**
  * SFEN形式での駒の表記
  * 大文字: 先手（Black）
  * 小文字: 後手（White）
  * +付き: 成駒
+ * 詳細: #18
  */
-export const PIECE_TO_SFEN: Record<PieceType, string> = {
+export const PIECE_TO_SFEN: Record<PieceType, SFENChar> = {
   king: 'K',
   rook: 'R',
   bishop: 'B',
@@ -67,7 +74,11 @@ export const PIECE_TO_SFEN: Record<PieceType, string> = {
   pawn: 'P',
 };
 
-export const SFEN_TO_PIECE: Record<string, PieceType> = {
+/**
+ * SFEN文字から駒の種類へのマッピング
+ * 詳細: #18
+ */
+export const SFEN_TO_PIECE: Record<SFENChar, PieceType> = {
   K: 'king',
   R: 'rook',
   B: 'bishop',

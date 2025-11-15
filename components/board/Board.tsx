@@ -1,125 +1,35 @@
 /**
  * 将棋盤コンポーネント
- * 詳細: #5, #6, #7, #12, #13, #17, パフォーマンス最適化
+ * 詳細: #5, #6, #7, #12, #13, #17, #18, パフォーマンス最適化
  */
 
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Square } from './Square';
-import { PromotionDialog } from '@/components/game/PromotionDialog';
 import { GameResult } from '@/components/game/GameResult';
 import { useGame } from '@/lib/context/GameContext';
-import { shouldOfferPromotion, mustPromote } from '@/lib/game/rules';
 import { BOARD_SIZE } from '@/lib/game/constants';
-import type { Position, Piece } from '@/types/shogi';
+import type { Position } from '@/types/shogi';
 
 /**
  * 将棋盤コンポーネント
  * GameContextから状態を取得し、Squareコンポーネントを使って盤面を表示
- * 成り選択ダイアログも管理 (#13)
+ * 成り選択ダイアログはGameContextで一元管理 (#13, #18)
  */
 export function Board() {
   const {
     gameState,
     selectSquare: contextSelectSquare,
-    movePiece,
-    dropPiece,
     newGame,
   } = useGame();
 
-  // 成り選択ダイアログの状態管理 (#13)
-  const [promotionState, setPromotionState] = useState<{
-    isOpen: boolean;
-    from: Position | null;
-    to: Position | null;
-    piece: Piece | null;
-  }>({
-    isOpen: false,
-    from: null,
-    to: null,
-    piece: null,
-  });
-
-  // マスをクリックした時の処理（成り判定を含む） - useCallbackでメモ化してSquareの再レンダリングを防止
+  // マスをクリックした時の処理 - useCallbackでメモ化してSquareの再レンダリングを防止
+  // 詳細: #18 - 成り判定はGameContextのSELECT_SQUAREアクション内で処理
   const handleSquareClick = useCallback((position: Position) => {
-    const { selectedPosition, selectedCapturedPiece, validMoves, board } = gameState;
-
-    // 持ち駒が選択されており、打てる場合（#12）
-    if (selectedCapturedPiece) {
-      const isValidDropTarget = validMoves.some(
-        (move) => move.rank === position.rank && move.file === position.file
-      );
-
-      if (isValidDropTarget) {
-        dropPiece(selectedCapturedPiece, position);
-        return;
-      }
-    }
-
-    // 駒が選択されており、移動先が有効な場合
-    if (selectedPosition) {
-      const isValidMoveTarget = validMoves.some(
-        (move) => move.rank === position.rank && move.file === position.file
-      );
-
-      if (isValidMoveTarget) {
-        const piece = board[selectedPosition.rank][selectedPosition.file];
-
-        if (piece) {
-          // 成り判定 (#13)
-          const canOffer = shouldOfferPromotion(selectedPosition, position, piece);
-          const mustPromoteNow = mustPromote(piece.type, position, piece.owner);
-
-          if (mustPromoteNow) {
-            // 強制的に成る
-            movePiece(selectedPosition, position, true);
-          } else if (canOffer) {
-            // 成り選択ダイアログを表示
-            setPromotionState({
-              isOpen: true,
-              from: selectedPosition,
-              to: position,
-              piece,
-            });
-          } else {
-            // 成らずに移動
-            movePiece(selectedPosition, position, false);
-          }
-          return;
-        }
-      }
-    }
-
-    // 通常の駒選択処理
+    // 全ての処理をGameContextに委譲
     contextSelectSquare(position);
-  }, [gameState, contextSelectSquare, movePiece, dropPiece]);
-
-  // 成り選択ダイアログで「成る」を選択
-  const handlePromote = useCallback(() => {
-    if (promotionState.from && promotionState.to) {
-      movePiece(promotionState.from, promotionState.to, true);
-      setPromotionState({
-        isOpen: false,
-        from: null,
-        to: null,
-        piece: null,
-      });
-    }
-  }, [promotionState.from, promotionState.to, movePiece]);
-
-  // 成り選択ダイアログで「成らない」を選択
-  const handleNotPromote = useCallback(() => {
-    if (promotionState.from && promotionState.to) {
-      movePiece(promotionState.from, promotionState.to, false);
-      setPromotionState({
-        isOpen: false,
-        from: null,
-        to: null,
-        piece: null,
-      });
-    }
-  }, [promotionState.from, promotionState.to, movePiece]);
+  }, [contextSelectSquare]);
 
   // 筋のラベル（9-1）
   const getFileLabel = (file: number): string => String(9 - file);
@@ -130,48 +40,66 @@ export function Board() {
     return labels[rank];
   };
 
-  // 指定されたマスが選択中かどうか
-  const isSquareSelected = (rank: number, file: number): boolean => {
-    if (!gameState.selectedPosition) return false;
-    return (
-      gameState.selectedPosition.rank === rank &&
-      gameState.selectedPosition.file === file
-    );
-  };
+  // 詳細: #18 - パフォーマンス最適化: positionオブジェクトをメモ化して再生成を防止
+  const boardPositions = useMemo(() => {
+    const positions: Position[][] = [];
+    for (let rank = 0; rank < BOARD_SIZE; rank++) {
+      positions[rank] = [];
+      for (let file = 0; file < BOARD_SIZE; file++) {
+        positions[rank][file] = { rank, file };
+      }
+    }
+    return positions;
+  }, []); // 一度だけ作成
 
-  // 指定されたマスが移動可能かどうか
-  const isSquareValidMove = (rank: number, file: number): boolean => {
-    return gameState.validMoves.some(
-      (pos) => pos.rank === rank && pos.file === file
-    );
-  };
+  // 詳細: #18 - パフォーマンス最適化: 判定関数をuseMemoでメモ化して毎回の計算を防止
+  const isSquareSelected = useMemo(() => {
+    return (rank: number, file: number): boolean => {
+      if (!gameState.selectedPosition) return false;
+      return (
+        gameState.selectedPosition.rank === rank &&
+        gameState.selectedPosition.file === file
+      );
+    };
+  }, [gameState.selectedPosition]);
 
-  // 指定されたマスが王手を受けているかどうか
-  const isSquareCheck = (rank: number, file: number): boolean => {
-    if (!gameState.isCheck) return false;
-    const piece = gameState.board[rank][file];
-    if (!piece) return false;
-    // 王手を受けているのは現在の手番の玉
-    return piece.type === 'king' && piece.owner === gameState.currentTurn;
-  };
+  const isSquareValidMove = useMemo(() => {
+    return (rank: number, file: number): boolean => {
+      return gameState.validMoves.some(
+        (move) => move.rank === rank && move.file === file
+      );
+    };
+  }, [gameState.validMoves]);
 
-  // 指定されたマスが最後の手のマスかどうか
-  const isSquareLastMove = (rank: number, file: number): boolean => {
-    if (!gameState.lastMove) return false;
-    const { to } = gameState.lastMove;
-    return to.rank === rank && to.file === file;
-  };
+  const isSquareCheck = useMemo(() => {
+    return (rank: number, file: number): boolean => {
+      if (!gameState.isCheck) return false;
+      const piece = gameState.board[rank][file];
+      if (!piece || piece.type !== 'king') return false;
+      return piece.owner === gameState.currentTurn;
+    };
+  }, [gameState.isCheck, gameState.board, gameState.currentTurn]);
+
+  const isSquareLastMove = useMemo(() => {
+    return (rank: number, file: number): boolean => {
+      if (!gameState.lastMove) return false;
+      return (
+        (gameState.lastMove.from && gameState.lastMove.from.rank === rank && gameState.lastMove.from.file === file) ||
+        (gameState.lastMove.to.rank === rank && gameState.lastMove.to.file === file)
+      );
+    };
+  }, [gameState.lastMove]);
 
   return (
     <>
-      <div className="flex flex-col items-center gap-2 sm:gap-4">
-        {/* 筋のラベル（横軸: 9-1） */}
+      <div className="flex flex-col items-center gap-2 sm:gap-3 md:gap-4">
+        {/* 筋のラベル（横軸: 9-1） - 詳細: #18 レスポンシブ対応 */}
         <div className="flex">
-          <div className="w-6 sm:w-8" /> {/* 段ラベル用のスペース */}
+          <div className="w-6 sm:w-7 md:w-8 lg:w-10" /> {/* 段ラベル用のスペース */}
           {Array.from({ length: BOARD_SIZE }).map((_, file) => (
             <div
               key={file}
-              className="w-10 h-6 sm:w-12 sm:h-8 flex items-center justify-center text-xs sm:text-sm font-semibold"
+              className="w-10 h-6 sm:w-11 sm:h-7 md:w-12 md:h-8 lg:w-14 lg:h-9 xl:w-16 xl:h-10 flex items-center justify-center text-xs sm:text-sm md:text-base font-semibold"
             >
               {getFileLabel(file)}
             </div>
@@ -180,24 +108,24 @@ export function Board() {
 
         {/* 盤面本体 */}
         <div className="flex">
-          {/* 段のラベル（縦軸: 一-九） */}
+          {/* 段のラベル（縦軸: 一-九） - 詳細: #18 レスポンシブ対応 */}
           <div className="flex flex-col">
             {Array.from({ length: BOARD_SIZE }).map((_, rank) => (
               <div
                 key={rank}
-                className="w-6 h-10 sm:w-8 sm:h-12 flex items-center justify-center text-xs sm:text-sm font-semibold"
+                className="w-6 h-10 sm:w-7 sm:h-11 md:w-8 md:h-12 lg:w-10 lg:h-14 xl:w-10 xl:h-16 flex items-center justify-center text-xs sm:text-sm md:text-base font-semibold"
               >
                 {getRankLabel(rank)}
               </div>
             ))}
           </div>
 
-          {/* 9x9のマス */}
+          {/* 9x9のマス - 詳細: #18 パフォーマンス最適化（メモ化されたpositionを使用） */}
           <div className="inline-block border-2 border-gray-800 bg-amber-50">
             {gameState.board.map((row, rank) => (
               <div key={rank} className="flex">
                 {row.map((piece, file) => {
-                  const position = { rank, file };
+                  const position = boardPositions[rank][file]; // メモ化されたposition
                   return (
                     <Square
                       key={`${rank}-${file}`}
@@ -216,15 +144,6 @@ export function Board() {
           </div>
         </div>
       </div>
-
-      {/* 成り選択ダイアログ (#13) */}
-      <PromotionDialog
-        isOpen={promotionState.isOpen}
-        pieceType={promotionState.piece?.type || null}
-        player={promotionState.piece?.owner || null}
-        onPromote={handlePromote}
-        onNotPromote={handleNotPromote}
-      />
 
       {/* ゲーム結果モーダル (#17) */}
       <GameResult
