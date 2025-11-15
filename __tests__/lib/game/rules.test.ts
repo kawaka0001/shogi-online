@@ -355,4 +355,73 @@ describe('金・銀・玉の移動ルール', () => {
       expect(isInCheck(board, 'white')).toBe(false);
     });
   });
+
+  // #16: ピンされた駒のテスト（王手放置の防止）
+  describe('ピンされた駒の検出', () => {
+    test('飛車によるピン: 金が玉と飛車の間にいる場合', () => {
+      const board = createEmptyBoard();
+      const blackKing: Piece = { type: 'king', owner: 'black', isPromoted: false };
+      const blackGold: Piece = { type: 'gold', owner: 'black', isPromoted: false };
+      const whiteRook: Piece = { type: 'rook', owner: 'white', isPromoted: false };
+
+      board[8][4] = blackKing;  // 先手玉: 5九
+      board[4][4] = blackGold;  // 先手金: 5五（ピンされている）
+      board[0][4] = whiteRook;  // 後手飛車: 5一
+
+      // 現在は王手ではない
+      expect(isInCheck(board, 'black')).toBe(false);
+
+      // 金を横に動かすとシミュレーション
+      const testBoard = board.map(row => [...row]);
+      testBoard[4][5] = blackGold; // 金を5五→6五に移動
+      testBoard[4][4] = null;
+
+      // 移動後は王手になる（ピンが外れて飛車が玉を攻撃）
+      expect(isInCheck(testBoard, 'black')).toBe(true);
+    });
+
+    test('角によるピン: 銀が玉と角の間にいる場合', () => {
+      const board = createEmptyBoard();
+      const blackKing: Piece = { type: 'king', owner: 'black', isPromoted: false };
+      const blackSilver: Piece = { type: 'silver', owner: 'black', isPromoted: false };
+      const whiteBishop: Piece = { type: 'bishop', owner: 'white', isPromoted: false };
+
+      board[8][4] = blackKing;    // 先手玉: 5九
+      board[5][1] = blackSilver;  // 先手銀: 2六（斜めにピンされている）
+      board[2][8] = whiteBishop;  // 後手角: 9三
+
+      // 現在は王手ではない
+      expect(isInCheck(board, 'black')).toBe(false);
+
+      // 銀を縦に動かすとシミュレーション
+      const testBoard = board.map(row => [...row]);
+      testBoard[4][1] = blackSilver; // 銀を2六→2五に移動
+      testBoard[5][1] = null;
+
+      // 移動後は王手になる（ピンが外れて角が玉を攻撃）
+      expect(isInCheck(testBoard, 'black')).toBe(true);
+    });
+
+    test('ピンされた駒が飛車を取る場合は王手にならない', () => {
+      const board = createEmptyBoard();
+      const blackKing: Piece = { type: 'king', owner: 'black', isPromoted: false };
+      const blackGold: Piece = { type: 'gold', owner: 'black', isPromoted: false };
+      const whiteRook: Piece = { type: 'rook', owner: 'white', isPromoted: false };
+
+      board[8][4] = blackKing;  // 先手玉: 5九
+      board[5][4] = blackGold;  // 先手金: 5六（ピンされている）
+      board[0][4] = whiteRook;  // 後手飛車: 5一
+
+      // 現在は王手ではない
+      expect(isInCheck(board, 'black')).toBe(false);
+
+      // 金が飛車を取るシミュレーション（同じ筋上を移動）
+      const testBoard = board.map(row => [...row]);
+      testBoard[0][4] = blackGold; // 金が飛車の位置に移動
+      testBoard[5][4] = null;
+
+      // 移動後も王手にならない（飛車を取ったので）
+      expect(isInCheck(testBoard, 'black')).toBe(false);
+    });
+  });
 });
