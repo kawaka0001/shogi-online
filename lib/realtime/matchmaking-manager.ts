@@ -45,7 +45,6 @@ export class MatchmakingManager {
   private callbacks: MatchmakingCallbacks = {};
   private isMatched = false;
   private matchingLock = false; // マッチング処理の排他制御
-  private myJoinedAt: string = ''; // 自分が参加した時刻
 
   /**
    * コンストラクタ
@@ -321,17 +320,19 @@ export class MatchmakingManager {
       const opponent = sortedCandidates[0];
       console.log('[MatchmakingManager] マッチング相手決定:', opponent);
 
-      // 自分が後から参加した場合は相手がゲームを作るまで待つ
-      const myJoinedAt = new Date().getTime();
-      const opponentJoinedAt = new Date(opponent.joinedAt).getTime();
+      // UUID辞書順で役割分担（2025年的なアプローチ: クライアント時計に依存しない）
+      // 小さいUUIDを持つ方がゲーム作成を担当
+      const shouldCreateGame = this.userId < opponent.userId;
 
-      if (myJoinedAt > opponentJoinedAt) {
+      if (!shouldCreateGame) {
         console.log(
-          '[MatchmakingManager] 相手が先に参加しているため、相手がゲームを作成するまで待機'
+          '[MatchmakingManager] 相手（UUID優先）がゲームを作成します。待機中...'
         );
         this.matchingLock = false;
         return;
       }
+
+      console.log('[MatchmakingManager] このクライアントがゲームを作成します');
 
       // ゲーム作成（先に参加した方が作成）
       await this.createGame(opponent);
