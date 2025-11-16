@@ -9,6 +9,7 @@ import type {
   MatchResult,
   MatchmakingCallbacks,
 } from '@/types/matchmaking';
+import { createInitialGameState } from '@/lib/game/initial-state';
 
 /**
  * Realtime Presenceを管理し、マッチング処理を行うクラス
@@ -127,6 +128,9 @@ export class MatchmakingManager {
         )
         .on('presence', { event: 'leave' }, ({ key, leftPresences }) =>
           this.handleLeave(key, leftPresences)
+        )
+        .on('broadcast', { event: 'game_created' }, ({ payload }) =>
+          this.handleGameCreated(payload)
         );
 
       // チャンネル購読とPresence送信
@@ -196,15 +200,19 @@ export class MatchmakingManager {
       const state = this.channel.presenceState<PlayerPresence>();
       console.log('[MatchmakingManager] Presence同期:', state);
 
-      // 全プレイヤーを取得（自分を除く）
-      const allPlayers = this.getAllPlayers(state);
-      console.log('[MatchmakingManager] 待機中のプレイヤー:', allPlayers);
+      // UI表示用: 全プレイヤー（自分を含む）
+      const allPlayersIncludingSelf = this.getAllPlayersIncludingSelf(state);
+      console.log('[MatchmakingManager] 全プレイヤー（自分含む）:', allPlayersIncludingSelf);
 
-      // 状態変更コールバック
-      this.callbacks.onStateChange?.(allPlayers);
+      // 状態変更コールバック（UI表示用）
+      this.callbacks.onStateChange?.(allPlayersIncludingSelf);
+
+      // マッチングロジック用: 対戦相手候補のみ（自分を除く）
+      const opponentCandidates = this.getOpponentCandidates(state);
+      console.log('[MatchmakingManager] 対戦相手候補:', opponentCandidates);
 
       // マッチング判定
-      this.findOpponent(allPlayers);
+      this.findOpponent(opponentCandidates);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       console.error('[MatchmakingManager] handleSync()エラー:', err);
@@ -226,13 +234,18 @@ export class MatchmakingManager {
       });
 
       const state = this.channel.presenceState<PlayerPresence>();
-      const allPlayers = this.getAllPlayers(state);
 
-      // 状態変更コールバック
-      this.callbacks.onStateChange?.(allPlayers);
+      // UI表示用: 全プレイヤー（自分を含む）
+      const allPlayersIncludingSelf = this.getAllPlayersIncludingSelf(state);
+
+      // 状態変更コールバック（UI表示用）
+      this.callbacks.onStateChange?.(allPlayersIncludingSelf);
+
+      // マッチングロジック用: 対戦相手候補のみ（自分を除く）
+      const opponentCandidates = this.getOpponentCandidates(state);
 
       // マッチング判定
-      this.findOpponent(allPlayers);
+      this.findOpponent(opponentCandidates);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       console.error('[MatchmakingManager] handleJoin()エラー:', err);
@@ -254,10 +267,12 @@ export class MatchmakingManager {
       });
 
       const state = this.channel.presenceState<PlayerPresence>();
-      const allPlayers = this.getAllPlayers(state);
 
-      // 状態変更コールバック
-      this.callbacks.onStateChange?.(allPlayers);
+      // UI表示用: 全プレイヤー（自分を含む）
+      const allPlayersIncludingSelf = this.getAllPlayersIncludingSelf(state);
+
+      // 状態変更コールバック（UI表示用）
+      this.callbacks.onStateChange?.(allPlayersIncludingSelf);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       console.error('[MatchmakingManager] handleLeave()エラー:', err);
@@ -266,17 +281,77 @@ export class MatchmakingManager {
   }
 
   /**
+   * ゲーム作成通知ハンドラ（Broadcast経由）
+   * 相手プレイヤーがゲームを作成したときに呼ばれる
+   */
+  private handleGameCreated(payload: any): void {
+    // 既にマッチング済みの場合はスキップ
+    if (this.isMatched) {
+      console.log('[MatchmakingManager] 既にマッチング済みのため無視');
+      return;
+    }
+
+    try {
+      console.log('[MatchmakingManager] ゲーム作成通知受信:', payload);
+
+      // このプレイヤーが対戦相手かどうか確認
+      if (
+        payload.blackPlayerId !== this.userId &&
+        payload.whitePlayerId !== this.userId
+      ) {
+        console.log('[MatchmakingManager] 自分のマッチングではないため無視');
+        return;
+      }
+
+      // マッチング結果を構築
+      const opponentId =
+        payload.blackPlayerId === this.userId
+          ? payload.whitePlayerId
+          : payload.blackPlayerId;
+
+      const matchResult: MatchResult = {
+        opponentId,
+        opponent: {
+          userId: opponentId,
+          username: 'Opponent', // TODO: Presenceから取得できるようにする
+          status: 'matched',
+          skillLevel: 1500, // TODO: Presenceから取得できるようにする
+          joinedAt: new Date().toISOString(),
+        },
+        gameId: payload.gameId,
+      };
+
+      this.isMatched = true;
+      this.callbacks.onMatch?.(matchResult);
+
+      // Presenceをmatched状態に更新
+      this.channel?.track({
+        userId: this.userId,
+        username: this.username,
+        status: 'matched' as const,
+        skillLevel: this.skillLevel,
+        joinedAt: new Date().toISOString(),
+      });
+
+      console.log('[MatchmakingManager] マッチング完了（Broadcast経由）!', matchResult);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error('[MatchmakingManager] handleGameCreated()エラー:', err);
+      this.callbacks.onError?.(err);
+    }
+  }
+
+  /**
    * 対戦相手を検索してマッチングを試みる
    *
    * マッチング条件:
-   * 1. 自分以外のプレイヤー
-   * 2. status = 'searching'
-   * 3. スキルレベル差が±200以内
-   * 4. タイムスタンプ（joinedAt）が最も早い相手（FIFO）
+   * 1. status = 'searching'
+   * 2. スキルレベル差が±200以内
+   * 3. タイムスタンプ（joinedAt）が最も早い相手（FIFO）
    *
-   * @param players - 待機中の全プレイヤー
+   * @param opponentCandidates - 対戦相手候補（自分を除く）
    */
-  private async findOpponent(players: PlayerPresence[]): Promise<void> {
+  private async findOpponent(opponentCandidates: PlayerPresence[]): Promise<void> {
     // 既にマッチング済み、または処理中の場合はスキップ
     if (this.isMatched || this.matchingLock) {
       console.log('[MatchmakingManager] マッチング処理スキップ（既に処理中）');
@@ -287,10 +362,7 @@ export class MatchmakingManager {
       this.matchingLock = true; // ロック取得
 
       // マッチング候補をフィルタリング
-      const candidates = players.filter((player) => {
-        // 自分を除外
-        if (player.userId === this.userId) return false;
-
+      const candidates = opponentCandidates.filter((player) => {
         // status = 'searching' のみ
         if (player.status !== 'searching') return false;
 
@@ -358,8 +430,15 @@ export class MatchmakingManager {
       const blackPlayerId = isBlackPlayer ? this.userId : opponent.userId;
       const whitePlayerId = isBlackPlayer ? opponent.userId : this.userId;
 
-      // 初期盤面（#6で定義された初期配置）
-      const initialBoard = this.getInitialBoard();
+      // 初期盤面（#4, #5で定義された初期配置）
+      const initialGameState = createInitialGameState();
+      const initialBoardState = {
+        board: initialGameState.board,
+        captured: initialGameState.captured,
+        gameStatus: initialGameState.gameStatus,
+        isCheck: initialGameState.isCheck,
+        lastMove: initialGameState.lastMove,
+      };
 
       // gamesテーブルにレコード作成
       const { data: game, error } = await this.supabase
@@ -367,7 +446,7 @@ export class MatchmakingManager {
         .insert({
           black_player_id: blackPlayerId,
           white_player_id: whitePlayerId,
-          board_state: initialBoard,
+          board_state: initialBoardState as Json,
           current_turn: 'black', // 先手（黒）が最初
           status: 'active', // ゲーム進行中
           moves: [],
@@ -381,7 +460,21 @@ export class MatchmakingManager {
 
       console.log('[MatchmakingManager] ゲーム作成成功:', game);
 
-      // マッチング結果を通知
+      // 相手プレイヤーにゲーム作成を通知（Broadcast）
+      await this.channel?.send({
+        type: 'broadcast',
+        event: 'game_created',
+        payload: {
+          gameId: game.id,
+          blackPlayerId,
+          whitePlayerId,
+          createdBy: this.userId,
+        },
+      });
+
+      console.log('[MatchmakingManager] ゲーム作成通知をBroadcast送信');
+
+      // マッチング結果を通知（自分用）
       const matchResult: MatchResult = {
         opponentId: opponent.userId,
         opponent,
@@ -412,12 +505,35 @@ export class MatchmakingManager {
   }
 
   /**
-   * Presence Stateから全プレイヤーを取得（自分を除く）
+   * Presence Stateから全プレイヤーを取得（自分を含む）
+   * UI表示用（「現在 X 人が待機中です」の表示に使用）
    *
    * @param state - Presenceの状態オブジェクト
-   * @returns 全プレイヤーのPresence情報の配列
+   * @returns 全プレイヤーのPresence情報の配列（自分を含む）
    */
-  private getAllPlayers(
+  private getAllPlayersIncludingSelf(
+    state: Record<string, PlayerPresence[]>
+  ): PlayerPresence[] {
+    const players: PlayerPresence[] = [];
+
+    Object.entries(state).forEach(([key, presences]) => {
+      // 複数デバイスからのアクセスに対応（最初のPresenceのみ使用）
+      if (presences.length > 0) {
+        players.push(presences[0]);
+      }
+    });
+
+    return players;
+  }
+
+  /**
+   * Presence Stateから対戦相手候補を取得（自分を除く）
+   * マッチングロジック用（対戦相手の検索に使用）
+   *
+   * @param state - Presenceの状態オブジェクト
+   * @returns 対戦相手候補のPresence情報の配列（自分を除く）
+   */
+  private getOpponentCandidates(
     state: Record<string, PlayerPresence[]>
   ): PlayerPresence[] {
     const players: PlayerPresence[] = [];
@@ -426,7 +542,7 @@ export class MatchmakingManager {
       // 複数デバイスからのアクセスに対応（最初のPresenceのみ使用）
       if (presences.length > 0) {
         const player = presences[0];
-        // 自分を除外
+        // 自分を除外（マッチング対象外）
         if (player.userId !== this.userId) {
           players.push(player);
         }
@@ -436,24 +552,4 @@ export class MatchmakingManager {
     return players;
   }
 
-  /**
-   * 初期盤面を取得
-   * TODO: #6で定義された初期配置ロジックを使用する
-   *
-   * @returns 初期盤面のJSON
-   */
-  private getInitialBoard(): Json {
-    // 暫定実装：空の盤面
-    // 本実装では lib/game/board.ts などから初期配置を取得する
-    return {
-      pieces: [
-        // 9x9の盤面配置
-        // 詳細は #6 で実装
-      ],
-      capturedPieces: {
-        black: [],
-        white: [],
-      },
-    };
-  }
 }

@@ -1,142 +1,45 @@
 /**
- * オンライン対戦ゲーム画面
- * 詳細: オンライン対戦機能実装
+ * オンラインゲーム画面（アダプターパターン使用）
+ * 詳細: #21
  */
 
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useMemo } from 'react';
-import { useOnlineGame } from '@/lib/hooks/useOnlineGame';
 import { Board } from '@/components/board/Board';
 import { CapturedPieces } from '@/components/captured/CapturedPieces';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { PromotionDialog } from '@/components/game/PromotionDialog';
 import { GameResult } from '@/components/game/GameResult';
-import { ThemeToggle } from '@/components/ui/ThemeToggle';
-import type { PieceType, Player } from '@/types/shogi';
-import type { ConnectionStatus } from '@/types/online-game';
+import { OnlineGameAdapter } from '@/lib/adapters/OnlineGameAdapter';
+import { useGame } from '@/lib/context/GameContext'; // 元のGameContextからインポート
+import { useOnlineGame } from '@/lib/hooks/useOnlineGame'; // ページレベルでのみ使用
+import type { PieceType } from '@/types/shogi';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 
-// 動的レンダリングを強制（静的生成を無効化）
+// 動的レンダリングを強制
 export const dynamic = 'force-dynamic';
-
-// ========================================
-// サブコンポーネント
-// ========================================
-
-/**
- * ローディング画面
- */
-function LoadingScreen() {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-16 w-16 sm:h-20 sm:w-20 border-t-4 border-b-4 border-shogi-accent-primary mx-auto mb-4"></div>
-        <p className="text-lg sm:text-xl font-semibold text-slate-700 dark:text-slate-300">
-          ゲームを読み込んでいます...
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/**
- * エラー画面
- */
-function ErrorScreen({ error }: { error: string }) {
-  const router = useRouter();
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-strong p-6 sm:p-8 md:p-10 max-w-md w-full text-center border border-slate-200 dark:border-slate-700">
-        <div className="text-5xl sm:text-6xl mb-4">😞</div>
-        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-3">
-          エラーが発生しました
-        </h2>
-        <p className="text-base sm:text-lg text-slate-600 dark:text-slate-400 mb-6">
-          {error}
-        </p>
-        <button
-          onClick={() => router.push('/')}
-          className="w-full bg-shogi-accent-primary hover:bg-shogi-accent-primary/90 text-white font-bold
-                     py-3 px-6 rounded-xl transition-all duration-200 shadow-medium hover:shadow-strong
-                     focus:outline-none focus:ring-2 focus:ring-shogi-accent-primary focus:ring-offset-2"
-        >
-          ホームに戻る
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/**
- * ゲームが見つからない画面
- */
-function NotFoundScreen() {
-  const router = useRouter();
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-strong p-6 sm:p-8 md:p-10 max-w-md w-full text-center border border-slate-200 dark:border-slate-700">
-        <div className="text-5xl sm:text-6xl mb-4">🔍</div>
-        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-3">
-          ゲームが見つかりません
-        </h2>
-        <p className="text-base sm:text-lg text-slate-600 dark:text-slate-400 mb-6">
-          このゲームは存在しないか、すでに終了しています。
-        </p>
-        <button
-          onClick={() => router.push('/')}
-          className="w-full bg-shogi-accent-primary hover:bg-shogi-accent-primary/90 text-white font-bold
-                     py-3 px-6 rounded-xl transition-all duration-200 shadow-medium hover:shadow-strong
-                     focus:outline-none focus:ring-2 focus:ring-shogi-accent-primary focus:ring-offset-2"
-        >
-          ホームに戻る
-        </button>
-      </div>
-    </div>
-  );
-}
 
 /**
  * 接続状態インジケーター
  */
-function ConnectionStatusIndicator({ status }: { status: ConnectionStatus }) {
+function ConnectionStatusIndicator({ status }: { status: string }) {
   const statusConfig = {
-    connecting: {
-      label: '接続中...',
-      color: 'bg-yellow-500',
-      textColor: 'text-yellow-700 dark:text-yellow-300',
-    },
-    connected: {
-      label: '接続済み',
-      color: 'bg-green-500',
-      textColor: 'text-green-700 dark:text-green-300',
-    },
-    reconnecting: {
-      label: '再接続中...',
-      color: 'bg-orange-500',
-      textColor: 'text-orange-700 dark:text-orange-300',
-    },
-    disconnected: {
-      label: '切断',
-      color: 'bg-red-500',
-      textColor: 'text-red-700 dark:text-red-300',
-    },
-    error: {
-      label: 'エラー',
-      color: 'bg-red-500',
-      textColor: 'text-red-700 dark:text-red-300',
-    },
+    connecting: { label: '接続中...', color: 'bg-yellow-500', pulse: true },
+    connected: { label: '接続済み', color: 'bg-green-500', pulse: false },
+    reconnecting: { label: '再接続中...', color: 'bg-orange-500', pulse: true },
+    disconnected: { label: '切断', color: 'bg-red-500', pulse: false },
+    error: { label: 'エラー', color: 'bg-red-600', pulse: true },
   };
 
-  const config = statusConfig[status];
+  const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.disconnected;
 
   return (
-    <div className="flex items-center gap-2">
-      <div className={`w-3 h-3 rounded-full ${config.color} ${status === 'connecting' || status === 'reconnecting' ? 'animate-pulse' : ''}`}></div>
-      <span className={`text-sm font-medium ${config.textColor}`}>
+    <div className="fixed top-4 left-4 z-40 flex items-center gap-2 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-medium">
+      <div className={`w-2 h-2 rounded-full ${config.color} ${config.pulse ? 'animate-pulse' : ''}`} />
+      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
         {config.label}
       </span>
     </div>
@@ -144,222 +47,168 @@ function ConnectionStatusIndicator({ status }: { status: ConnectionStatus }) {
 }
 
 /**
- * 対戦相手情報
+ * ローディング画面
  */
-function OpponentInfo({
-  opponentName,
-  myPlayer,
-}: {
-  opponentName: string;
-  myPlayer: Player;
-}) {
+function LoadingScreen() {
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-medium p-3 sm:p-4 border border-slate-200 dark:border-slate-700">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center">
       <div className="text-center">
-        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-1">
-          あなた: {myPlayer === 'black' ? '☗ 先手' : '☖ 後手'}
-        </p>
-        <p className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">
-          対戦相手: {opponentName}
+        <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-shogi-accent-primary mb-4" />
+        <p className="text-lg font-medium text-slate-700 dark:text-slate-300">
+          ゲームを読み込んでいます...
         </p>
       </div>
-    </div>
+    </main>
   );
 }
 
 /**
- * オンラインゲームコントロール
+ * エラー画面
  */
-function OnlineGameControl({
-  gameStatus,
-  currentTurn,
-  myPlayer,
-  onResign,
-  onOfferDraw,
-}: {
-  gameStatus: string;
-  currentTurn: Player;
-  myPlayer: Player;
-  onResign: () => void;
-  onOfferDraw: () => void;
-}) {
-  const isMyTurn = currentTurn === myPlayer;
-  const isGameActive = gameStatus === 'playing' || gameStatus === 'check';
-
+function ErrorScreen({ message }: { message: string }) {
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-medium p-4 sm:p-5 border border-slate-200 dark:border-slate-700">
-      {/* ゲーム状態表示 */}
-      <div className="text-center mb-4">
-        <div className="inline-flex items-center gap-2 bg-slate-100 dark:bg-slate-700 px-4 py-2 rounded-full">
-          <span className="text-sm sm:text-base font-semibold text-slate-700 dark:text-slate-300">
-            {isMyTurn ? '🟢 あなたの手番です' : '⏳ 相手の手番です'}
-          </span>
-        </div>
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-2xl shadow-strong p-8 text-center">
+        <div className="text-6xl mb-4">⚠️</div>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3">
+          エラーが発生しました
+        </h2>
+        <p className="text-slate-600 dark:text-slate-400 mb-6">
+          {message}
+        </p>
+        <Link
+          href="/matchmaking"
+          className="inline-block px-6 py-3 bg-shogi-accent-primary hover:bg-shogi-accent-primary/90 text-white rounded-lg transition-colors font-medium"
+        >
+          マッチング画面に戻る
+        </Link>
       </div>
-
-      {/* コントロールボタン */}
-      {isGameActive && (
-        <div className="flex gap-2 sm:gap-3">
-          <button
-            onClick={onOfferDraw}
-            className="flex-1 bg-slate-300 dark:bg-slate-600 hover:bg-slate-400 dark:hover:bg-slate-500
-                       text-slate-800 dark:text-slate-100 font-semibold py-2 px-4 rounded-lg
-                       transition-all duration-200 shadow-soft hover:shadow-medium
-                       focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
-                       text-sm sm:text-base"
-          >
-            引き分け提案
-          </button>
-          <button
-            onClick={onResign}
-            className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold
-                       py-2 px-4 rounded-lg transition-all duration-200
-                       shadow-soft hover:shadow-medium
-                       focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2
-                       text-sm sm:text-base"
-          >
-            投了する
-          </button>
-        </div>
-      )}
-    </div>
+    </main>
   );
 }
 
-// ========================================
-// メインコンポーネント
-// ========================================
+/**
+ * オンラインゲームコンテンツ（アダプター内で使用）
+ */
+function OnlineGameContent({ gameId }: { gameId: string }) {
+  // アダプターが提供するGameContext経由でゲーム状態を取得
+  const { gameState, resign, clearError, selectCapturedPiece, promote, notPromote, onlineInfo } = useGame();
 
-export default function OnlineGamePage() {
-  const params = useParams();
-  const gameId = params.gameId as string;
-
-  const {
-    gameState,
-    isLoading,
-    error,
-    resign,
-    offerDraw,
-  } = useOnlineGame(gameId);
-
-  // エラーメッセージのクリア用
-  const handleErrorClose = useCallback(() => {
-    // TODO: エラークリア機能を追加
-  }, []);
-
-  // 先手の持ち駒クリック処理（手番チェック付き）
+  // 持ち駒クリック処理（手番チェック付き）
   const handleBlackCapturedPieceClick = useCallback((pieceType: PieceType) => {
-    if (!gameState) return;
+    if (!onlineInfo || onlineInfo.myPlayer !== 'black') return;
     if (gameState.currentTurn !== 'black') return;
-    if (gameState.myPlayer !== 'black') return;
-    // TODO: 持ち駒選択処理を実装
-  }, [gameState]);
+    selectCapturedPiece(pieceType);
+  }, [gameState.currentTurn, selectCapturedPiece, onlineInfo]);
 
-  // 後手の持ち駒クリック処理（手番チェック付き）
   const handleWhiteCapturedPieceClick = useCallback((pieceType: PieceType) => {
-    if (!gameState) return;
+    if (!onlineInfo || onlineInfo.myPlayer !== 'white') return;
     if (gameState.currentTurn !== 'white') return;
-    if (gameState.myPlayer !== 'white') return;
-    // TODO: 持ち駒選択処理を実装
-  }, [gameState]);
+    selectCapturedPiece(pieceType);
+  }, [gameState.currentTurn, selectCapturedPiece, onlineInfo]);
 
-  // selectedPieceの計算をuseMemoでメモ化
+  // 選択中の持ち駒（自分の手番のみ）
   const blackSelectedPiece = useMemo(() => {
-    if (!gameState) return undefined;
-    return gameState.currentTurn === 'black' && gameState.myPlayer === 'black'
+    if (!onlineInfo || onlineInfo.myPlayer !== 'black') return undefined;
+    return gameState.currentTurn === 'black'
       ? gameState.selectedCapturedPiece ?? undefined
       : undefined;
-  }, [gameState]);
+  }, [gameState.currentTurn, gameState.selectedCapturedPiece, onlineInfo]);
 
   const whiteSelectedPiece = useMemo(() => {
-    if (!gameState) return undefined;
-    return gameState.currentTurn === 'white' && gameState.myPlayer === 'white'
+    if (!onlineInfo || onlineInfo.myPlayer !== 'white') return undefined;
+    return gameState.currentTurn === 'white'
       ? gameState.selectedCapturedPiece ?? undefined
       : undefined;
-  }, [gameState]);
+  }, [gameState.currentTurn, gameState.selectedCapturedPiece, onlineInfo]);
 
-  // ローディング状態
-  if (isLoading) {
-    return <LoadingScreen />;
-  }
+  // 投了ハンドラ（確認付き）
+  const handleResign = useCallback(() => {
+    if (!onlineInfo) return;
+    const confirmMessage = onlineInfo.myPlayer === 'black'
+      ? '先手として投了しますか？'
+      : '後手として投了しますか？';
 
-  // エラー状態
-  if (error) {
-    return <ErrorScreen error={error.message} />;
-  }
+    if (window.confirm(confirmMessage)) {
+      resign();
+    }
+  }, [resign, onlineInfo]);
 
-  // ゲームが見つからない
-  if (!gameState) {
-    return <NotFoundScreen />;
-  }
-
-  // 新しいゲームボタンのハンドラ（オンラインゲームでは使用しない）
-  const handleNewGame = () => {
-    // オンラインゲームでは新しいゲームを開始しない
-    // マッチング画面に戻る
-    window.location.href = '/matchmaking';
+  // 手番表示
+  const getTurnMessage = () => {
+    if (!onlineInfo) return '';
+    const isMyTurn = gameState.currentTurn === onlineInfo.myPlayer;
+    const turnPlayerName = gameState.currentTurn === 'black' ? '先手' : '後手';
+    return isMyTurn ? `あなたの手番（${turnPlayerName}）` : `相手の手番（${turnPlayerName}）`;
   };
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 py-3 sm:py-4 md:py-6 lg:py-8">
+      {/* 接続状態インジケーター */}
+      {onlineInfo && (
+        <ConnectionStatusIndicator status={onlineInfo.connectionStatus} />
+      )}
+
       {/* ヘッダーナビゲーション - 右上固定 */}
       <div className="fixed top-4 right-4 z-40 flex gap-2">
         <Link
-          href="/"
+          href="/matchmaking"
           className="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors text-sm font-medium"
         >
-          ローカルゲーム
+          マッチング画面
+        </Link>
+        <Link
+          href="/profile"
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+        >
+          プロフィール
         </Link>
         <ThemeToggle />
       </div>
 
       {/* エラーメッセージ表示 */}
-      <ErrorMessage message={gameState.errorMessage} onClose={handleErrorClose} />
+      <ErrorMessage message={gameState.errorMessage} onClose={clearError} />
 
       {/* 成り判定ダイアログ */}
       <PromotionDialog
         isOpen={gameState.promotionState.isOpen}
         pieceType={gameState.promotionState.piece?.type || null}
         player={gameState.promotionState.piece?.owner || null}
-        onPromote={() => {/* TODO: 成り処理を実装 */}}
-        onNotPromote={() => {/* TODO: 成らない処理を実装 */}}
+        onPromote={promote}
+        onNotPromote={notPromote}
       />
 
       <div className="container mx-auto px-3 sm:px-4 md:px-6 max-w-7xl">
-        {/* ヘッダー - モダンデザイン */}
+        {/* ヘッダー */}
         <div className="text-center mb-5 sm:mb-6 md:mb-8">
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 dark:text-slate-100 mb-2 sm:mb-3 tracking-tight">
-            将棋
+            オンライン対戦
           </h1>
-          <p className="text-sm sm:text-base md:text-lg text-slate-600 dark:text-slate-400 font-medium mb-2">
-            オンライン対戦モード
+          <p className="text-sm sm:text-base md:text-lg text-slate-600 dark:text-slate-400 font-medium">
+            {onlineInfo && `あなた: ${onlineInfo.myPlayer === 'black' ? '先手' : '後手'}`}
           </p>
-          {/* 接続状態 */}
-          <div className="flex justify-center">
-            <ConnectionStatusIndicator status={gameState.connectionStatus} />
+        </div>
+
+        {/* 手番表示とコントロール */}
+        <div className="mb-5 sm:mb-6 md:mb-8 flex flex-col items-center gap-3">
+          <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm px-6 py-3 rounded-full shadow-soft">
+            <span className="text-base sm:text-lg font-semibold text-slate-700 dark:text-slate-300">
+              {getTurnMessage()}
+            </span>
           </div>
+
+          {/* 投了ボタン */}
+          {onlineInfo && gameState.gameStatus === 'playing' && (
+            <button
+              onClick={handleResign}
+              className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium shadow-soft hover:shadow-medium"
+            >
+              投了する
+            </button>
+          )}
         </div>
 
-        {/* 対戦相手情報 */}
-        <div className="mb-5 sm:mb-6 md:mb-8 max-w-md mx-auto">
-          <OpponentInfo
-            opponentName={gameState.opponentName}
-            myPlayer={gameState.myPlayer}
-          />
-        </div>
-
-        {/* ゲームコントロール */}
-        <div className="mb-5 sm:mb-6 md:mb-8 max-w-2xl mx-auto">
-          <OnlineGameControl
-            gameStatus={gameState.gameStatus}
-            currentTurn={gameState.currentTurn}
-            myPlayer={gameState.myPlayer}
-            onResign={resign}
-            onOfferDraw={offerDraw}
-          />
-        </div>
-
-        {/* メインゲーム画面 - モダンデザイン */}
+        {/* メインゲーム画面 */}
         <div className="flex flex-col lg:flex-row items-center lg:items-start justify-center gap-4 sm:gap-5 md:gap-6 lg:gap-8 xl:gap-10">
           {/* 後手の持ち駒 */}
           <div className="w-full lg:w-auto order-1 lg:order-1">
@@ -387,7 +236,7 @@ export default function OnlineGamePage() {
           </div>
         </div>
 
-        {/* フッター（情報表示） - モダンデザイン */}
+        {/* フッター（情報表示） */}
         <div className="mt-6 sm:mt-7 md:mt-8 text-center">
           <div className="inline-flex items-center gap-2 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm px-4 py-2 rounded-full shadow-soft">
             <span className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -400,12 +249,41 @@ export default function OnlineGamePage() {
         </div>
       </div>
 
-      {/* ゲーム結果モーダル */}
+      {/* ゲーム結果モーダル（投了・詰み時に表示） */}
+      {/* オンラインゲームでは新規ゲーム開始ではなくマッチング画面に戻る */}
       <GameResult
         gameStatus={gameState.gameStatus}
         currentTurn={gameState.currentTurn}
-        onNewGame={handleNewGame}
+        onNewGame={() => window.location.href = '/matchmaking'}
       />
     </main>
+  );
+}
+
+/**
+ * オンラインゲームページ
+ */
+export default function OnlineGamePage() {
+  const params = useParams();
+  const gameId = params.gameId as string;
+
+  // オンラインゲーム情報の取得（アダプター外で使用）
+  const { isLoading, error } = useOnlineGame(gameId);
+
+  // ローディング中
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  // エラー発生時
+  if (error) {
+    return <ErrorScreen message={error.message} />;
+  }
+
+  // アダプターでGameContextを提供し、既存コンポーネントを再利用
+  return (
+    <OnlineGameAdapter gameId={gameId}>
+      <OnlineGameContent gameId={gameId} />
+    </OnlineGameAdapter>
   );
 }

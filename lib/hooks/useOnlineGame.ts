@@ -18,9 +18,13 @@ import type {
   DrawAcceptEvent,
   DrawDeclineEvent,
   GameRow,
-  OnlineGameInfo
+  OnlineGameInfo,
+  RawBoardState,
+  BoardStateForDB
 } from '@/types/online-game';
-import type { Move, GameState, Player } from '@/types/shogi';
+import type { Move, GameState, Player, Piece, Position, CapturablePieceType } from '@/types/shogi';
+import { isCapturablePieceType } from '@/types/shogi';
+import { isCheckmate } from '@/lib/game/rules';
 
 export function useOnlineGame(gameId: string): UseOnlineGameReturn {
   // 状態管理
@@ -28,6 +32,7 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<OnlineGameError | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Refs
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -83,8 +88,36 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
       const myPlayer: Player = gameData.black_player_id === user.id ? 'black' : 'white';
       const opponentId = myPlayer === 'black' ? gameData.white_player_id : gameData.black_player_id;
 
+      // ユーザーIDを保存
+      setCurrentUserId(user.id);
+
       // GameStateの構築
-      const boardState = gameData.board_state as GameState;
+      // DBから取得したboard_stateにはUI用のフィールド（promotionState等）が含まれていないため、
+      // 明示的にデフォルト値を設定する
+      const rawBoardState = gameData.board_state as RawBoardState;
+
+      const boardState: GameState = {
+        board: rawBoardState.board || [],
+        captured: rawBoardState.captured || {
+          black: { rook: 0, bishop: 0, gold: 0, silver: 0, knight: 0, lance: 0, pawn: 0 },
+          white: { rook: 0, bishop: 0, gold: 0, silver: 0, knight: 0, lance: 0, pawn: 0 }
+        },
+        currentTurn: (gameData.current_turn as Player) || 'black',
+        moveHistory: gameData.moves as Move[] || [],
+        gameStatus: rawBoardState.gameStatus || 'playing',
+        isCheck: rawBoardState.isCheck || false,
+        selectedPosition: null, // UI状態はリセット
+        validMoves: [], // UI状態はリセット
+        selectedCapturedPiece: null, // UI状態はリセット
+        lastMove: rawBoardState.lastMove || null,
+        errorMessage: null, // UI状態はリセット
+        promotionState: { // UI状態はリセット
+          isOpen: false,
+          from: null,
+          to: null,
+          piece: null,
+        },
+      };
 
       // OnlineGameInfoの構築
       const onlineInfo: OnlineGameInfo = {
@@ -146,23 +179,115 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
         timestamp: new Date().toISOString()
       };
 
-      // Realtimeで指し手をブロードキャスト
+      // ゲーム状態の更新（ローカル）
+      const newBoard = gameState.board.map(row => [...row]);
+      const newCaptured = { ...gameState.captured };
+      const newMoves = [...gameState.moveHistory, move];
+
+      // 駒を打つ場合
+      if (move.type === 'drop' && isCapturablePieceType(move.piece)) {
+        // 持ち駒を減らす
+        newCaptured[gameState.myPlayer] = {
+          ...newCaptured[gameState.myPlayer],
+          [move.piece]: newCaptured[gameState.myPlayer][move.piece] - 1
+        };
+
+        // 盤面に駒を配置
+        newBoard[move.to.rank][move.to.file] = {
+          type: move.piece,
+          owner: gameState.myPlayer,
+          isPromoted: false
+        };
+      } else if (move.from) {
+        // 駒を移動する場合
+        const movingPiece = newBoard[move.from.rank][move.from.file];
+        if (!movingPiece) {
+          throw new Error('移動元に駒がありません');
+        }
+
+        // 駒を取る場合
+        if (move.capturedPiece && isCapturablePieceType(move.capturedPiece)) {
+          // 成った駒は元の駒として持ち駒になる
+          newCaptured[gameState.myPlayer] = {
+            ...newCaptured[gameState.myPlayer],
+            [move.capturedPiece]: newCaptured[gameState.myPlayer][move.capturedPiece] + 1
+          };
+        }
+
+        // 駒を移動
+        newBoard[move.to.rank][move.to.file] = {
+          ...movingPiece,
+          isPromoted: movingPiece.isPromoted || move.shouldPromote
+        };
+        newBoard[move.from.rank][move.from.file] = null;
+      }
+
+      // 次のプレイヤー
+      const nextPlayer: Player = gameState.myPlayer === 'black' ? 'white' : 'black';
+
+      // 詰みチェック
+      const isNextPlayerInCheckmate = isCheckmate(newBoard, nextPlayer);
+      const newGameStatus = isNextPlayerInCheckmate ? 'checkmate' : 'playing';
+
+      // 新しいボードステート
+      const newBoardState: BoardStateForDB = {
+        board: newBoard,
+        captured: newCaptured,
+        gameStatus: newGameStatus,
+        isCheck: false, // TODO: 王手チェック
+        lastMove: move,
+      };
+
+      // DBの更新
+      const { error: updateError } = await supabaseRef.current
+        .from('games')
+        .update({
+          board_state: newBoardState,
+          current_turn: nextPlayer,
+          moves: newMoves,
+          status: newGameStatus === 'checkmate' ? 'finished' : 'active',
+          winner_id: newGameStatus === 'checkmate' ? user.id : null,
+          finished_at: newGameStatus === 'checkmate' ? new Date().toISOString() : null
+        })
+        .eq('id', gameId);
+
+      if (updateError) {
+        handleError('sync_failed', 'ゲーム状態の更新に失敗しました', updateError);
+        throw updateError;
+      }
+
+      // Realtimeで指し手をブロードキャスト（DB更新後）
       if (channelRef.current) {
-        await channelRef.current.send({
+        console.log('Sending move broadcast:', moveEvent);
+        const result = await channelRef.current.send({
           type: 'broadcast',
           event: 'move',
           payload: moveEvent
         });
+        console.log('Broadcast send result:', result);
+      } else {
+        console.warn('Channel not available for broadcasting');
       }
 
-      // TODO: ゲーム状態の更新とDB保存
-      // この部分は別途ゲームロジックと連携して実装
+      // ローカル状態を更新
+      setGameState(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          board: newBoard,
+          captured: newCaptured,
+          currentTurn: nextPlayer,
+          moveHistory: newMoves,
+          gameStatus: newGameStatus,
+          lastMove: move,
+        };
+      });
 
     } catch (err) {
       handleError('sync_failed', '指し手の送信に失敗しました', err);
       throw err;
     }
-  }, [gameState, handleError]);
+  }, [gameState, gameId, handleError]);
 
   /**
    * 投了処理
@@ -346,108 +471,127 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
   }, [gameState, handleError]);
 
   /**
-   * Realtime Channelのセットアップ
+   * 初期化とRealtime Channelのセットアップ（統合版）
    */
   useEffect(() => {
-    if (!gameId) return;
+    let channel: RealtimeChannel | null = null;
+    let mounted = true;
 
-    // チャンネルの作成と購読
-    const channel = supabaseRef.current.channel(`game:${gameId}`);
+    const initialize = async () => {
+      // ユーザーIDの取得
+      const { data: { user } } = await supabaseRef.current.auth.getUser();
+      if (!user || !mounted) return;
 
-    // 指し手イベントの処理
-    channel.on('broadcast', { event: 'move' }, (payload) => {
-      const moveEvent = payload.payload as MoveEvent;
-      console.log('Received move:', moveEvent);
+      setCurrentUserId(user.id);
+      console.log('User initialized:', user.id);
 
-      // TODO: ゲーム状態の更新処理
-      // この部分は別途ゲームロジックと連携して実装
-    });
+      // ゲームデータの取得
+      await fetchGameData();
 
-    // 投了イベントの処理
-    channel.on('broadcast', { event: 'resign' }, (payload) => {
-      const resignEvent = payload.payload as ResignEvent;
-      console.log('Received resign:', resignEvent);
+      if (!mounted) return;
 
-      // ゲーム状態を更新
-      setGameState((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          gameStatus: 'resignation'
-        };
+      // チャンネルの作成と購読
+      channel = supabaseRef.current.channel(`game:${gameId}`);
+      console.log('Creating channel for game:', gameId);
+
+      // 指し手イベントの処理
+      channel.on('broadcast', { event: 'move' }, (payload) => {
+        const moveEvent = payload.payload as MoveEvent;
+        console.log('Received move:', moveEvent);
+
+        // 相手の指し手の場合のみ処理（自分の指し手は既にローカル更新済み）
+        if (moveEvent.playerId === user.id) {
+          console.log('Skipping own move');
+          return;
+        }
+
+        // ゲームデータを再取得して同期
+        fetchGameData();
       });
-    });
 
-    // 引き分け提案イベントの処理
-    channel.on('broadcast', { event: 'draw_offer' }, (payload) => {
-      const drawOfferEvent = payload.payload as DrawOfferEvent;
-      console.log('Received draw offer:', drawOfferEvent);
+      // 投了イベントの処理
+      channel.on('broadcast', { event: 'resign' }, (payload) => {
+        const resignEvent = payload.payload as ResignEvent;
+        console.log('Received resign:', resignEvent);
 
-      // TODO: UIで引き分け提案を表示
-    });
-
-    // 引き分け承認イベントの処理
-    channel.on('broadcast', { event: 'draw_accept' }, (payload) => {
-      const drawAcceptEvent = payload.payload as DrawAcceptEvent;
-      console.log('Received draw accept:', drawAcceptEvent);
-
-      // ゲーム状態を更新
-      setGameState((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          gameStatus: 'draw'
-        };
+        // ゲーム状態を更新
+        setGameState((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            gameStatus: 'resignation'
+          };
+        });
       });
-    });
 
-    // 引き分け拒否イベントの処理
-    channel.on('broadcast', { event: 'draw_decline' }, (payload) => {
-      const drawDeclineEvent = payload.payload as DrawDeclineEvent;
-      console.log('Received draw decline:', drawDeclineEvent);
+      // 引き分け提案イベントの処理
+      channel.on('broadcast', { event: 'draw_offer' }, (payload) => {
+        const drawOfferEvent = payload.payload as DrawOfferEvent;
+        console.log('Received draw offer:', drawOfferEvent);
 
-      // TODO: UIで引き分け拒否を表示
-    });
+        // TODO: UIで引き分け提案を表示
+      });
 
-    // 接続状態の監視
-    channel.subscribe((status) => {
-      console.log('Channel status:', status);
+      // 引き分け承認イベントの処理
+      channel.on('broadcast', { event: 'draw_accept' }, (payload) => {
+        const drawAcceptEvent = payload.payload as DrawAcceptEvent;
+        console.log('Received draw accept:', drawAcceptEvent);
 
-      switch (status) {
-        case 'SUBSCRIBED':
-          setConnectionStatus('connected');
-          break;
-        case 'CHANNEL_ERROR':
-          setConnectionStatus('error');
-          handleError('connection_lost', 'チャンネル接続エラー');
-          break;
-        case 'TIMED_OUT':
-          setConnectionStatus('disconnected');
-          handleError('timeout', '接続がタイムアウトしました');
-          break;
-        case 'CLOSED':
-          setConnectionStatus('disconnected');
-          break;
-      }
-    });
+        // ゲーム状態を更新
+        setGameState((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            gameStatus: 'draw'
+          };
+        });
+      });
 
-    channelRef.current = channel;
+      // 引き分け拒否イベントの処理
+      channel.on('broadcast', { event: 'draw_decline' }, (payload) => {
+        const drawDeclineEvent = payload.payload as DrawDeclineEvent;
+        console.log('Received draw decline:', drawDeclineEvent);
 
-    // 初期データの取得
-    fetchGameData();
+        // TODO: UIで引き分け拒否を表示
+      });
+
+      // 接続状態の監視
+      channel.subscribe((status) => {
+        console.log('Channel status:', status);
+
+        switch (status) {
+          case 'SUBSCRIBED':
+            setConnectionStatus('connected');
+            break;
+          case 'CHANNEL_ERROR':
+            setConnectionStatus('error');
+            handleError('connection_lost', 'チャンネル接続エラー');
+            break;
+          case 'TIMED_OUT':
+            setConnectionStatus('disconnected');
+            handleError('timeout', '接続がタイムアウトしました');
+            break;
+          case 'CLOSED':
+            setConnectionStatus('disconnected');
+            break;
+        }
+      });
+
+      channelRef.current = channel;
+    };
+
+    initialize();
 
     // クリーンアップ
     return () => {
-      const supabase = supabaseRef.current;
-      const channel = channelRef.current;
-
-      if (channel && supabase) {
+      mounted = false;
+      if (channel) {
+        const supabase = createClient();
         supabase.removeChannel(channel);
         channelRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameId]);
+  }, [gameId, fetchGameData, handleError]);
 
   return {
     gameState,
