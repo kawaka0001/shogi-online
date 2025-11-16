@@ -9,6 +9,7 @@ import type {
   MatchResult,
   MatchmakingCallbacks,
 } from '@/types/matchmaking';
+import { createInitialGameState } from '@/lib/game/initial-state';
 
 /**
  * Realtime Presenceを管理し、マッチング処理を行うクラス
@@ -429,8 +430,15 @@ export class MatchmakingManager {
       const blackPlayerId = isBlackPlayer ? this.userId : opponent.userId;
       const whitePlayerId = isBlackPlayer ? opponent.userId : this.userId;
 
-      // 初期盤面（#6で定義された初期配置）
-      const initialBoard = this.getInitialBoard();
+      // 初期盤面（#4, #5で定義された初期配置）
+      const initialGameState = createInitialGameState();
+      const initialBoardState = {
+        board: initialGameState.board,
+        captured: initialGameState.captured,
+        gameStatus: initialGameState.gameStatus,
+        isCheck: initialGameState.isCheck,
+        lastMove: initialGameState.lastMove,
+      };
 
       // gamesテーブルにレコード作成
       const { data: game, error } = await this.supabase
@@ -438,7 +446,7 @@ export class MatchmakingManager {
         .insert({
           black_player_id: blackPlayerId,
           white_player_id: whitePlayerId,
-          board_state: initialBoard,
+          board_state: initialBoardState as Json,
           current_turn: 'black', // 先手（黒）が最初
           status: 'active', // ゲーム進行中
           moves: [],
@@ -544,24 +552,4 @@ export class MatchmakingManager {
     return players;
   }
 
-  /**
-   * 初期盤面を取得
-   * TODO: #6で定義された初期配置ロジックを使用する
-   *
-   * @returns 初期盤面のJSON
-   */
-  private getInitialBoard(): Json {
-    // 暫定実装：空の盤面
-    // 本実装では lib/game/board.ts などから初期配置を取得する
-    return {
-      pieces: [
-        // 9x9の盤面配置
-        // 詳細は #6 で実装
-      ],
-      capturedPieces: {
-        black: [],
-        white: [],
-      },
-    };
-  }
 }
