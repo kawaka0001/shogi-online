@@ -493,14 +493,20 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
       setCurrentUserId(user.id);
       console.log('User initialized:', user.id);
 
-      // ゲームデータの取得
-      await fetchGameData();
-
-      if (!mounted) return;
-
-      // チャンネルの作成と購読
-      channel = supabaseRef.current.channel(`game:${gameId}`);
-      console.log('Creating channel for game:', gameId);
+      // チャンネルの作成と購読を先に開始（並列化でパフォーマンス向上）
+      // Broadcast設定を明示的に有効化（2025年ベストプラクティス）
+      channel = supabaseRef.current.channel(`game:${gameId}`, {
+        config: {
+          broadcast: {
+            self: false, // 自分自身には送信しない（Optimistic UIで既に更新済み）
+            ack: true    // 送信確認を受け取る（信頼性向上）
+          },
+          presence: {
+            key: user.id // Presence追跡（オンライン状態管理）
+          }
+        }
+      });
+      console.log('Creating channel for game:', gameId, 'with user:', user.id);
 
       // 指し手イベントの処理
       channel.on('broadcast', { event: 'move' }, (payload) => {
@@ -682,6 +688,7 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
         switch (status) {
           case 'SUBSCRIBED':
             setConnectionStatus('connected');
+            console.log('✅ Realtime channel subscribed successfully');
             break;
           case 'CHANNEL_ERROR':
             setConnectionStatus('error');
@@ -698,6 +705,11 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
       });
 
       channelRef.current = channel;
+
+      // ゲームデータの取得（並列実行、チャンネル購読をブロックしない）
+      fetchGameData().catch(err => {
+        console.error('Initial game data fetch failed:', err);
+      });
     };
 
     initialize();
