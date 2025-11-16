@@ -498,7 +498,7 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
       channel = supabaseRef.current.channel(`game:${gameId}`, {
         config: {
           broadcast: {
-            self: false, // 自分自身には送信しない（Optimistic UIで既に更新済み）
+            self: true,  // 全クライアントに送信（受信側でフィルタリング）
             ack: true    // 送信確認を受け取る（信頼性向上）
           },
           presence: {
