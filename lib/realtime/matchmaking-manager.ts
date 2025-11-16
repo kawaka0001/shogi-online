@@ -127,6 +127,9 @@ export class MatchmakingManager {
         )
         .on('presence', { event: 'leave' }, ({ key, leftPresences }) =>
           this.handleLeave(key, leftPresences)
+        )
+        .on('broadcast', { event: 'game_created' }, ({ payload }) =>
+          this.handleGameCreated(payload)
         );
 
       // チャンネル購読とPresence送信
@@ -266,6 +269,67 @@ export class MatchmakingManager {
   }
 
   /**
+   * ゲーム作成通知ハンドラ（Broadcast経由）
+   * 相手プレイヤーがゲームを作成したときに呼ばれる
+   */
+  private handleGameCreated(payload: any): void {
+    // 既にマッチング済みの場合はスキップ
+    if (this.isMatched) {
+      console.log('[MatchmakingManager] 既にマッチング済みのため無視');
+      return;
+    }
+
+    try {
+      console.log('[MatchmakingManager] ゲーム作成通知受信:', payload);
+
+      // このプレイヤーが対戦相手かどうか確認
+      if (
+        payload.blackPlayerId !== this.userId &&
+        payload.whitePlayerId !== this.userId
+      ) {
+        console.log('[MatchmakingManager] 自分のマッチングではないため無視');
+        return;
+      }
+
+      // マッチング結果を構築
+      const opponentId =
+        payload.blackPlayerId === this.userId
+          ? payload.whitePlayerId
+          : payload.blackPlayerId;
+
+      const matchResult: MatchResult = {
+        opponentId,
+        opponent: {
+          userId: opponentId,
+          username: 'Opponent', // TODO: Presenceから取得できるようにする
+          status: 'matched',
+          skillLevel: 1500, // TODO: Presenceから取得できるようにする
+          joinedAt: new Date().toISOString(),
+        },
+        gameId: payload.gameId,
+      };
+
+      this.isMatched = true;
+      this.callbacks.onMatch?.(matchResult);
+
+      // Presenceをmatched状態に更新
+      this.channel?.track({
+        userId: this.userId,
+        username: this.username,
+        status: 'matched' as const,
+        skillLevel: this.skillLevel,
+        joinedAt: new Date().toISOString(),
+      });
+
+      console.log('[MatchmakingManager] マッチング完了（Broadcast経由）!', matchResult);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error('[MatchmakingManager] handleGameCreated()エラー:', err);
+      this.callbacks.onError?.(err);
+    }
+  }
+
+  /**
    * 対戦相手を検索してマッチングを試みる
    *
    * マッチング条件:
@@ -381,7 +445,21 @@ export class MatchmakingManager {
 
       console.log('[MatchmakingManager] ゲーム作成成功:', game);
 
-      // マッチング結果を通知
+      // 相手プレイヤーにゲーム作成を通知（Broadcast）
+      await this.channel?.send({
+        type: 'broadcast',
+        event: 'game_created',
+        payload: {
+          gameId: game.id,
+          blackPlayerId,
+          whitePlayerId,
+          createdBy: this.userId,
+        },
+      });
+
+      console.log('[MatchmakingManager] ゲーム作成通知をBroadcast送信');
+
+      // マッチング結果を通知（自分用）
       const matchResult: MatchResult = {
         opponentId: opponent.userId,
         opponent,
