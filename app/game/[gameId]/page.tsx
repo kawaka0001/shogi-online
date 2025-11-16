@@ -146,6 +146,9 @@ function OnlineGameContent({ gameId }: { gameId: string }) {
     return isMyTurn ? `あなたの手番（${turnPlayerName}）` : `相手の手番（${turnPlayerName}）`;
   };
 
+  // 後手プレイヤーの場合は盤面を180度回転 (#61)
+  const isRotated = onlineInfo?.myPlayer === 'white';
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 py-3 sm:py-4 md:py-6 lg:py-8">
       {/* 接続状態インジケーター */}
@@ -233,30 +236,35 @@ function OnlineGameContent({ gameId }: { gameId: string }) {
         </div>
 
         {/* メインゲーム画面 */}
-        <div className="flex flex-col lg:flex-row items-center lg:items-start justify-center gap-4 sm:gap-5 md:gap-6 lg:gap-8 xl:gap-10">
-          {/* 後手の持ち駒 */}
-          <div className="w-full lg:w-auto order-1 lg:order-1">
-            <CapturedPieces
-              player="white"
-              pieces={gameState.captured.white}
-              selectedPiece={whiteSelectedPiece}
-              onPieceClick={handleWhiteCapturedPieceClick}
-            />
-          </div>
+        {/* 後手視点の場合は全体を180度回転 (#61) */}
+        <div className={isRotated ? 'rotate-180' : ''}>
+          <div className="flex flex-col lg:flex-row items-center lg:items-start justify-center gap-4 sm:gap-5 md:gap-6 lg:gap-8 xl:gap-10">
+            {/* 後手の持ち駒 */}
+            <div className="w-full lg:w-auto order-1 lg:order-1">
+              <CapturedPieces
+                player="white"
+                pieces={gameState.captured.white}
+                selectedPiece={whiteSelectedPiece}
+                onPieceClick={handleWhiteCapturedPieceClick}
+                isRotated={isRotated}
+              />
+            </div>
 
-          {/* 盤面 */}
-          <div className="order-2 lg:order-2">
-            <Board />
-          </div>
+            {/* 盤面（内部で二重回転処理） */}
+            <div className="order-2 lg:order-2">
+              <Board isRotated={isRotated} />
+            </div>
 
-          {/* 先手の持ち駒 */}
-          <div className="w-full lg:w-auto order-3 lg:order-3">
-            <CapturedPieces
-              player="black"
-              pieces={gameState.captured.black}
-              selectedPiece={blackSelectedPiece}
-              onPieceClick={handleBlackCapturedPieceClick}
-            />
+            {/* 先手の持ち駒 */}
+            <div className="w-full lg:w-auto order-3 lg:order-3">
+              <CapturedPieces
+                player="black"
+                pieces={gameState.captured.black}
+                selectedPiece={blackSelectedPiece}
+                onPieceClick={handleBlackCapturedPieceClick}
+                isRotated={isRotated}
+              />
+            </div>
           </div>
         </div>
 
