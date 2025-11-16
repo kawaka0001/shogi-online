@@ -28,6 +28,9 @@ export function OnlineGameAdapter({
     error,
     submitMove,
     resign: onlineResign,
+    offerDraw,
+    acceptDraw,
+    declineDraw,
   } = useOnlineGame(gameId);
 
   // ローカルUI状態（選択中の位置、駒など）
@@ -340,13 +343,17 @@ export function OnlineGameAdapter({
       myPlayer: onlineGameState.myPlayer,
       connectionStatus: onlineGameState.connectionStatus,
     } : undefined,
+    // 引き分け機能（#58）
+    acceptDraw,
+    declineDraw,
+    offerDraw,
     // 以下はアダプターでは使用しないが、型を満たすためにダミー実装
     dispatch: () => {},
     movePiece: () => {},
     dropPiece: () => {},
     deselect: () => {},
     undo: () => {},
-  }), [gameState, onlineGameState, selectSquare, selectCapturedPiece, newGame, resign, clearError, promote, notPromote]);
+  }), [gameState, onlineGameState, selectSquare, selectCapturedPiece, newGame, resign, clearError, promote, notPromote, acceptDraw, declineDraw, offerDraw]);
 
   // ローディング中やエラー時はnullを返す（親コンポーネントでハンドリング）
   // 全てのフック呼び出しの後に配置

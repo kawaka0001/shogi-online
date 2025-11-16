@@ -25,6 +25,13 @@ import type {
 import type { Move, GameState, Player, Piece, Position, CapturablePieceType } from '@/types/shogi';
 import { isCapturablePieceType } from '@/types/shogi';
 import { isCheckmate } from '@/lib/game/rules';
+import {
+  isMoveEvent,
+  isResignEvent,
+  isDrawOfferEvent,
+  isDrawAcceptEvent,
+  isDrawDeclineEvent
+} from '@/lib/utils/type-guards';
 
 export function useOnlineGame(gameId: string): UseOnlineGameReturn {
   // 状態管理
@@ -134,7 +141,8 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
       // OnlineGameStateの構築
       const onlineGameState: OnlineGameState = {
         ...boardState,
-        ...onlineInfo
+        ...onlineInfo,
+        drawOfferFrom: null // 引き分け提案状態の初期化（#58）
       };
 
       setGameState(onlineGameState);
@@ -496,7 +504,13 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
 
       // 指し手イベントの処理
       channel.on('broadcast', { event: 'move' }, (payload) => {
-        const moveEvent = payload.payload as MoveEvent;
+        // 型ガードでランタイム検証（詳細: #58 Warning #6）
+        if (!isMoveEvent(payload.payload)) {
+          console.error('Invalid move event payload:', payload.payload);
+          return;
+        }
+
+        const moveEvent = payload.payload;
         console.log('Received move:', moveEvent);
 
         // 相手の指し手の場合のみ処理（自分の指し手は既にローカル更新済み）
@@ -511,7 +525,13 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
 
       // 投了イベントの処理
       channel.on('broadcast', { event: 'resign' }, (payload) => {
-        const resignEvent = payload.payload as ResignEvent;
+        // 型ガードでランタイム検証（詳細: #58 Warning #6）
+        if (!isResignEvent(payload.payload)) {
+          console.error('Invalid resign event payload:', payload.payload);
+          return;
+        }
+
+        const resignEvent = payload.payload;
         console.log('Received resign:', resignEvent);
 
         // ゲーム状態を更新
@@ -526,33 +546,68 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
 
       // 引き分け提案イベントの処理
       channel.on('broadcast', { event: 'draw_offer' }, (payload) => {
-        const drawOfferEvent = payload.payload as DrawOfferEvent;
+        // 型ガードでランタイム検証（詳細: #58 Warning #6）
+        if (!isDrawOfferEvent(payload.payload)) {
+          console.error('Invalid draw offer event payload:', payload.payload);
+          return;
+        }
+
+        const drawOfferEvent = payload.payload;
         console.log('Received draw offer:', drawOfferEvent);
 
-        // TODO: UIで引き分け提案を表示
+        // 相手からの提案の場合のみ表示（#58 Warning #7）
+        if (drawOfferEvent.playerId !== user.id) {
+          setGameState((prev) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              drawOfferFrom: drawOfferEvent.player
+            };
+          });
+        }
       });
 
       // 引き分け承認イベントの処理
       channel.on('broadcast', { event: 'draw_accept' }, (payload) => {
-        const drawAcceptEvent = payload.payload as DrawAcceptEvent;
+        // 型ガードでランタイム検証（詳細: #58 Warning #6）
+        if (!isDrawAcceptEvent(payload.payload)) {
+          console.error('Invalid draw accept event payload:', payload.payload);
+          return;
+        }
+
+        const drawAcceptEvent = payload.payload;
         console.log('Received draw accept:', drawAcceptEvent);
 
-        // ゲーム状態を更新
+        // ゲーム状態を更新（引き分け提案をクリア）（#58 Warning #7）
         setGameState((prev) => {
           if (!prev) return null;
           return {
             ...prev,
-            gameStatus: 'draw'
+            gameStatus: 'draw',
+            drawOfferFrom: null
           };
         });
       });
 
       // 引き分け拒否イベントの処理
       channel.on('broadcast', { event: 'draw_decline' }, (payload) => {
-        const drawDeclineEvent = payload.payload as DrawDeclineEvent;
+        // 型ガードでランタイム検証（詳細: #58 Warning #6）
+        if (!isDrawDeclineEvent(payload.payload)) {
+          console.error('Invalid draw decline event payload:', payload.payload);
+          return;
+        }
+
+        const drawDeclineEvent = payload.payload;
         console.log('Received draw decline:', drawDeclineEvent);
 
-        // TODO: UIで引き分け拒否を表示
+        // 引き分け提案をクリア（#58 Warning #7）
+        setGameState((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            drawOfferFrom: null
+          };
+        });
       });
 
       // 接続状態の監視

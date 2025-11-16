@@ -59,6 +59,11 @@ export type GameContextType = {
     myPlayer: 'black' | 'white';
     connectionStatus: string;
   };
+
+  // Optional: オンライン対戦用の引き分け機能（#58）
+  acceptDraw?: () => void;
+  declineDraw?: () => void;
+  offerDraw?: () => void;
 };
 
 // ========================================

@@ -46,7 +46,9 @@ export type OnlineGameInfo = {
 /**
  * オンラインゲーム全体の状態
  */
-export type OnlineGameState = GameState & OnlineGameInfo;
+export type OnlineGameState = GameState & OnlineGameInfo & {
+  drawOfferFrom?: Player | null; // 引き分け提案をしているプレイヤー（#58）
+};
 
 /**
  * DBから取得した盤面状態（部分的な型定義）

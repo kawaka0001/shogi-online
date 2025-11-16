@@ -12,6 +12,7 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { PromotionDialog } from '@/components/game/PromotionDialog';
 import { GameResult } from '@/components/game/GameResult';
+import { DrawOfferDialog } from '@/components/game/DrawOfferDialog';
 import { OnlineGameAdapter } from '@/lib/adapters/OnlineGameAdapter';
 import { useGame } from '@/lib/context/GameContext'; // 元のGameContextからインポート
 import { useOnlineGame } from '@/lib/hooks/useOnlineGame'; // ページレベルでのみ使用
@@ -92,7 +93,10 @@ function ErrorScreen({ message }: { message: string }) {
  */
 function OnlineGameContent({ gameId }: { gameId: string }) {
   // アダプターが提供するGameContext経由でゲーム状態を取得
-  const { gameState, resign, clearError, selectCapturedPiece, promote, notPromote, onlineInfo } = useGame();
+  const { gameState, resign, clearError, selectCapturedPiece, promote, notPromote, onlineInfo, acceptDraw, declineDraw, offerDraw } = useGame();
+
+  // オンラインゲーム情報を直接取得（drawOfferFrom等のため）
+  const { gameState: onlineGameState } = useOnlineGame(gameId);
 
   // 持ち駒クリック処理（手番チェック付き）
   const handleBlackCapturedPieceClick = useCallback((pieceType: PieceType) => {
@@ -178,6 +182,16 @@ function OnlineGameContent({ gameId }: { gameId: string }) {
         onNotPromote={notPromote}
       />
 
+      {/* 引き分け提案ダイアログ（#58） */}
+      {onlineGameState?.drawOfferFrom && acceptDraw && declineDraw && (
+        <DrawOfferDialog
+          isOpen={true}
+          offerFrom={onlineGameState.drawOfferFrom}
+          onAccept={acceptDraw}
+          onDecline={declineDraw}
+        />
+      )}
+
       <div className="container mx-auto px-3 sm:px-4 md:px-6 max-w-7xl">
         {/* ヘッダー */}
         <div className="text-center mb-5 sm:mb-6 md:mb-8">
@@ -197,14 +211,24 @@ function OnlineGameContent({ gameId }: { gameId: string }) {
             </span>
           </div>
 
-          {/* 投了ボタン */}
+          {/* コントロールボタン */}
           {onlineInfo && gameState.gameStatus === 'playing' && (
-            <button
-              onClick={handleResign}
-              className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium shadow-soft hover:shadow-medium"
-            >
-              投了する
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={handleResign}
+                className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium shadow-soft hover:shadow-medium"
+              >
+                投了する
+              </button>
+              {offerDraw && (
+                <button
+                  onClick={offerDraw}
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium shadow-soft hover:shadow-medium"
+                >
+                  引き分け提案
+                </button>
+              )}
+            </div>
           )}
         </div>
 
