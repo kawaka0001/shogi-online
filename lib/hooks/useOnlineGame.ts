@@ -253,11 +253,15 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
 
       // Realtimeで指し手をブロードキャスト（DB更新後）
       if (channelRef.current) {
-        await channelRef.current.send({
+        console.log('Sending move broadcast:', moveEvent);
+        const result = await channelRef.current.send({
           type: 'broadcast',
           event: 'move',
           payload: moveEvent
         });
+        console.log('Broadcast send result:', result);
+      } else {
+        console.warn('Channel not available for broadcasting');
       }
 
       // ローカル状態を更新
@@ -462,133 +466,127 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
   }, [gameState, handleError]);
 
   /**
-   * ユーザーIDの取得（一度だけ実行）
+   * 初期化とRealtime Channelのセットアップ（統合版）
    */
   useEffect(() => {
-    const initializeUser = async () => {
+    let channel: RealtimeChannel | null = null;
+    let mounted = true;
+
+    const initialize = async () => {
+      // ユーザーIDの取得
       const { data: { user } } = await supabaseRef.current.auth.getUser();
-      if (user) {
-        setCurrentUserId(user.id);
-      }
+      if (!user || !mounted) return;
+
+      setCurrentUserId(user.id);
+      console.log('User initialized:', user.id);
+
+      // ゲームデータの取得
+      await fetchGameData();
+
+      if (!mounted) return;
+
+      // チャンネルの作成と購読
+      channel = supabaseRef.current.channel(`game:${gameId}`);
+      console.log('Creating channel for game:', gameId);
+
+      // 指し手イベントの処理
+      channel.on('broadcast', { event: 'move' }, (payload) => {
+        const moveEvent = payload.payload as MoveEvent;
+        console.log('Received move:', moveEvent);
+
+        // 相手の指し手の場合のみ処理（自分の指し手は既にローカル更新済み）
+        if (moveEvent.playerId === user.id) {
+          console.log('Skipping own move');
+          return;
+        }
+
+        // ゲームデータを再取得して同期
+        fetchGameData();
+      });
+
+      // 投了イベントの処理
+      channel.on('broadcast', { event: 'resign' }, (payload) => {
+        const resignEvent = payload.payload as ResignEvent;
+        console.log('Received resign:', resignEvent);
+
+        // ゲーム状態を更新
+        setGameState((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            gameStatus: 'resignation'
+          };
+        });
+      });
+
+      // 引き分け提案イベントの処理
+      channel.on('broadcast', { event: 'draw_offer' }, (payload) => {
+        const drawOfferEvent = payload.payload as DrawOfferEvent;
+        console.log('Received draw offer:', drawOfferEvent);
+
+        // TODO: UIで引き分け提案を表示
+      });
+
+      // 引き分け承認イベントの処理
+      channel.on('broadcast', { event: 'draw_accept' }, (payload) => {
+        const drawAcceptEvent = payload.payload as DrawAcceptEvent;
+        console.log('Received draw accept:', drawAcceptEvent);
+
+        // ゲーム状態を更新
+        setGameState((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            gameStatus: 'draw'
+          };
+        });
+      });
+
+      // 引き分け拒否イベントの処理
+      channel.on('broadcast', { event: 'draw_decline' }, (payload) => {
+        const drawDeclineEvent = payload.payload as DrawDeclineEvent;
+        console.log('Received draw decline:', drawDeclineEvent);
+
+        // TODO: UIで引き分け拒否を表示
+      });
+
+      // 接続状態の監視
+      channel.subscribe((status) => {
+        console.log('Channel status:', status);
+
+        switch (status) {
+          case 'SUBSCRIBED':
+            setConnectionStatus('connected');
+            break;
+          case 'CHANNEL_ERROR':
+            setConnectionStatus('error');
+            handleError('connection_lost', 'チャンネル接続エラー');
+            break;
+          case 'TIMED_OUT':
+            setConnectionStatus('disconnected');
+            handleError('timeout', '接続がタイムアウトしました');
+            break;
+          case 'CLOSED':
+            setConnectionStatus('disconnected');
+            break;
+        }
+      });
+
+      channelRef.current = channel;
     };
-    initializeUser();
-  }, []);
 
-  /**
-   * 初回データ取得（currentUserIdが設定されたタイミング）
-   */
-  useEffect(() => {
-    if (!gameId || !currentUserId) return;
-    fetchGameData();
-  }, [gameId, currentUserId, fetchGameData]);
-
-  /**
-   * Realtime Channelのセットアップ
-   */
-  useEffect(() => {
-    if (!gameId || !currentUserId) return;
-
-    // チャンネルの作成と購読
-    const channel = supabaseRef.current.channel(`game:${gameId}`);
-
-    // 指し手イベントの処理
-    channel.on('broadcast', { event: 'move' }, (payload) => {
-      const moveEvent = payload.payload as MoveEvent;
-      console.log('Received move:', moveEvent);
-
-      // 相手の指し手の場合のみ処理（自分の指し手は既にローカル更新済み）
-      if (moveEvent.playerId === currentUserId) {
-        console.log('Skipping own move');
-        return;
-      }
-
-      // ゲームデータを再取得して同期
-      fetchGameData();
-    });
-
-    // 投了イベントの処理
-    channel.on('broadcast', { event: 'resign' }, (payload) => {
-      const resignEvent = payload.payload as ResignEvent;
-      console.log('Received resign:', resignEvent);
-
-      // ゲーム状態を更新
-      setGameState((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          gameStatus: 'resignation'
-        };
-      });
-    });
-
-    // 引き分け提案イベントの処理
-    channel.on('broadcast', { event: 'draw_offer' }, (payload) => {
-      const drawOfferEvent = payload.payload as DrawOfferEvent;
-      console.log('Received draw offer:', drawOfferEvent);
-
-      // TODO: UIで引き分け提案を表示
-    });
-
-    // 引き分け承認イベントの処理
-    channel.on('broadcast', { event: 'draw_accept' }, (payload) => {
-      const drawAcceptEvent = payload.payload as DrawAcceptEvent;
-      console.log('Received draw accept:', drawAcceptEvent);
-
-      // ゲーム状態を更新
-      setGameState((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          gameStatus: 'draw'
-        };
-      });
-    });
-
-    // 引き分け拒否イベントの処理
-    channel.on('broadcast', { event: 'draw_decline' }, (payload) => {
-      const drawDeclineEvent = payload.payload as DrawDeclineEvent;
-      console.log('Received draw decline:', drawDeclineEvent);
-
-      // TODO: UIで引き分け拒否を表示
-    });
-
-    // 接続状態の監視
-    channel.subscribe((status) => {
-      console.log('Channel status:', status);
-
-      switch (status) {
-        case 'SUBSCRIBED':
-          setConnectionStatus('connected');
-          break;
-        case 'CHANNEL_ERROR':
-          setConnectionStatus('error');
-          handleError('connection_lost', 'チャンネル接続エラー');
-          break;
-        case 'TIMED_OUT':
-          setConnectionStatus('disconnected');
-          handleError('timeout', '接続がタイムアウトしました');
-          break;
-        case 'CLOSED':
-          setConnectionStatus('disconnected');
-          break;
-      }
-    });
-
-    channelRef.current = channel;
+    initialize();
 
     // クリーンアップ
     return () => {
-      const channel = channelRef.current;
-
+      mounted = false;
       if (channel) {
-        // supabaseRef.currentを直接使用せず、ローカルコピーを使う
         const supabase = createClient();
         supabase.removeChannel(channel);
         channelRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameId]);
+  }, [gameId, fetchGameData, handleError]);
 
   return {
     gameState,
