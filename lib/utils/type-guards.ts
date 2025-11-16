@@ -34,30 +34,48 @@ function isPlayer(value: unknown): value is Player {
 function isMove(value: unknown): value is Move {
   if (!isObject(value)) return false;
 
+  // type: 'move' | 'drop'
+  const hasValidType = value.type === 'move' || value.type === 'drop';
+
+  // from: Position | null (rank, fileを使用)
   const hasValidFrom =
     value.from === null ||
     (isObject(value.from) &&
-      typeof value.from.row === 'number' &&
-      typeof value.from.col === 'number');
+      typeof value.from.rank === 'number' &&
+      typeof value.from.file === 'number');
 
+  // to: Position (rank, fileを使用)
   const hasValidTo =
     isObject(value.to) &&
-    typeof value.to.row === 'number' &&
-    typeof value.to.col === 'number';
+    typeof value.to.rank === 'number' &&
+    typeof value.to.file === 'number';
 
-  const hasValidPiece = isObject(value.piece) && typeof value.piece.type === 'string';
+  // piece: PieceType (string)
+  const hasValidPiece = typeof value.piece === 'string';
 
-  const hasValidPlayer = isPlayer(value.player);
+  // isPromoted: boolean
+  const hasValidIsPromoted = typeof value.isPromoted === 'boolean';
 
-  const hasValidIsPromoted =
-    value.isPromoted === undefined || typeof value.isPromoted === 'boolean';
+  // shouldPromote: boolean
+  const hasValidShouldPromote = typeof value.shouldPromote === 'boolean';
+
+  // capturedPiece: PieceType | null
+  const hasValidCapturedPiece =
+    value.capturedPiece === null || typeof value.capturedPiece === 'string';
+
+  // timestamp: Date | string
+  const hasValidTimestamp =
+    value.timestamp instanceof Date || typeof value.timestamp === 'string';
 
   return (
+    hasValidType &&
     hasValidFrom &&
     hasValidTo &&
     hasValidPiece &&
-    hasValidPlayer &&
-    hasValidIsPromoted
+    hasValidIsPromoted &&
+    hasValidShouldPromote &&
+    hasValidCapturedPiece &&
+    hasValidTimestamp
   );
 }
 
