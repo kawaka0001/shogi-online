@@ -84,7 +84,29 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
       const opponentId = myPlayer === 'black' ? gameData.white_player_id : gameData.black_player_id;
 
       // GameStateの構築
-      const boardState = gameData.board_state as GameState;
+      // DBから取得したboard_stateにはUI用のフィールド（promotionState等）が含まれていないため、
+      // 明示的にデフォルト値を設定する
+      const rawBoardState = gameData.board_state as any;
+
+      const boardState: GameState = {
+        board: rawBoardState.board || [],
+        captured: rawBoardState.captured || { black: {}, white: {} },
+        currentTurn: (gameData.current_turn as Player) || 'black',
+        moveHistory: gameData.moves as Move[] || [],
+        gameStatus: rawBoardState.gameStatus || 'playing',
+        isCheck: rawBoardState.isCheck || false,
+        selectedPosition: null, // UI状態はリセット
+        validMoves: [], // UI状態はリセット
+        selectedCapturedPiece: null, // UI状態はリセット
+        lastMove: rawBoardState.lastMove || null,
+        errorMessage: null, // UI状態はリセット
+        promotionState: { // UI状態はリセット
+          isOpen: false,
+          from: null,
+          to: null,
+          piece: null,
+        },
+      };
 
       // OnlineGameInfoの構築
       const onlineInfo: OnlineGameInfo = {
