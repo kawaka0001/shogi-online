@@ -12,11 +12,11 @@ import { PIECE_NAMES_JA } from '@/lib/game/constants';
 // 持ち駒として表示する駒の順序（玉は持ち駒にならない）
 const PIECE_ORDER = ['rook', 'bishop', 'gold', 'silver', 'knight', 'lance', 'pawn'] as const;
 
-export const CapturedPieces = memo(function CapturedPieces({ player, pieces, selectedPiece, onPieceClick }: CapturedPiecesProps) {
+export const CapturedPieces = memo(function CapturedPieces({ player, pieces, selectedPiece, onPieceClick, isRotated = false }: CapturedPiecesProps & { isRotated?: boolean }) {
   const hasCapturedPieces = PIECE_ORDER.some(pieceType => pieces[pieceType] > 0);
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-medium p-3 sm:p-4 md:p-5 min-w-[180px] sm:min-w-[200px] md:min-w-[220px] lg:min-w-[240px] xl:min-w-[260px] border border-slate-200 dark:border-slate-700">
+    <div className={`bg-white dark:bg-slate-800 rounded-xl shadow-medium p-3 sm:p-4 md:p-5 min-w-[180px] sm:min-w-[200px] md:min-w-[220px] lg:min-w-[240px] xl:min-w-[260px] border border-slate-200 dark:border-slate-700 ${isRotated ? 'rotate-180' : ''}`}>
       {/* ヘッダー - モダンデザイン */}
       <h3 className="text-sm sm:text-base md:text-lg font-bold text-slate-800 dark:text-slate-100 mb-2 sm:mb-3 text-center border-b border-slate-200 dark:border-slate-700 pb-2">
         {player === 'black' ? '☗ 先手' : '☖ 後手'}

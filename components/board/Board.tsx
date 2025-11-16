@@ -16,8 +16,9 @@ import type { Position } from '@/types/shogi';
  * 将棋盤コンポーネント
  * GameContextから状態を取得し、Squareコンポーネントを使って盤面を表示
  * 成り選択ダイアログはGameContextで一元管理 (#13, #18)
+ * @param isRotated - 後手視点で盤面を180度回転するか (#61)
  */
-export function Board() {
+export function Board({ isRotated = false }: { isRotated?: boolean }) {
   const {
     gameState,
     selectSquare: contextSelectSquare,
@@ -93,27 +94,27 @@ export function Board() {
   return (
     <>
       <div className="flex flex-col items-center gap-2 sm:gap-3 md:gap-4">
-        {/* 筋のラベル（横軸: 9-1） - モダンデザイン */}
+        {/* 筋のラベル（横軸: 9-1） - モダンデザイン + 回転対応 (#61) */}
         <div className="flex">
           <div className="w-6 sm:w-7 md:w-8 lg:w-9" /> {/* 段ラベル用のスペース */}
           {Array.from({ length: BOARD_SIZE }).map((_, file) => (
             <div
               key={file}
-              className="w-10 h-6 sm:w-11 sm:h-7 md:w-12 md:h-8 lg:w-13 lg:h-9 xl:w-14 xl:h-9 flex items-center justify-center text-xs sm:text-sm md:text-base font-semibold text-slate-600 dark:text-slate-400"
+              className={`w-10 h-6 sm:w-11 sm:h-7 md:w-12 md:h-8 lg:w-13 lg:h-9 xl:w-14 xl:h-9 flex items-center justify-center text-xs sm:text-sm md:text-base font-semibold text-slate-600 dark:text-slate-400 ${isRotated ? 'rotate-180' : ''}`}
             >
               {getFileLabel(file)}
             </div>
           ))}
         </div>
 
-        {/* 盤面本体 - モダンデザイン: 影とボーダーを追加 */}
+        {/* 盤面本体 - モダンデザイン: 影とボーダーを追加 + 回転対応 (#61) */}
         <div className="flex">
           {/* 段のラベル（縦軸: 一-九） */}
           <div className="flex flex-col">
             {Array.from({ length: BOARD_SIZE }).map((_, rank) => (
               <div
                 key={rank}
-                className="w-6 h-10 sm:w-7 sm:h-11 md:w-8 md:h-12 lg:w-9 lg:h-13 xl:w-9 xl:h-14 flex items-center justify-center text-xs sm:text-sm md:text-base font-semibold text-slate-600 dark:text-slate-400"
+                className={`w-6 h-10 sm:w-7 sm:h-11 md:w-8 md:h-12 lg:w-9 lg:h-13 xl:w-9 xl:h-14 flex items-center justify-center text-xs sm:text-sm md:text-base font-semibold text-slate-600 dark:text-slate-400 ${isRotated ? 'rotate-180' : ''}`}
               >
                 {getRankLabel(rank)}
               </div>
@@ -136,6 +137,7 @@ export function Board() {
                       isCheck={isSquareCheck(rank, file)}
                       isLastMove={isSquareLastMove(rank, file)}
                       onClick={() => handleSquareClick(position)}
+                      isRotated={isRotated}
                     />
                   );
                 })}

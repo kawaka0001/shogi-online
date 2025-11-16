@@ -25,7 +25,8 @@ export const Square = memo(function Square({
   isCheck,
   isLastMove,
   onClick,
-}: SquareProps) {
+  isRotated = false,
+}: SquareProps & { isRotated?: boolean }) {
   // 市松模様の背景色を決定（モダンカラー）
   const isEvenSquare = (position.rank + position.file) % 2 === 0;
   const baseColor = isEvenSquare ? 'bg-shogi-board-light' : 'bg-shogi-board-dark';
@@ -111,7 +112,8 @@ export const Square = memo(function Square({
         </div>
       )}
 
-      {/* 駒の表示 */}
+      {/* 駒の表示 (#61) */}
+      {/* Pieceコンポーネント内で既に後手の駒は回転しているため、ここでは追加の回転は不要 */}
       {piece && <Piece piece={piece} size="medium" isDraggable={false} />}
     </button>
   );
