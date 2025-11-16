@@ -49,6 +49,28 @@ export type OnlineGameInfo = {
 export type OnlineGameState = GameState & OnlineGameInfo;
 
 /**
+ * DBから取得した盤面状態（部分的な型定義）
+ */
+export type RawBoardState = {
+  board?: GameState['board'];
+  captured?: GameState['captured'];
+  gameStatus?: GameState['gameStatus'];
+  isCheck?: boolean;
+  lastMove?: Move | null;
+};
+
+/**
+ * DBに保存する盤面状態（UI状態を除く）
+ */
+export type BoardStateForDB = {
+  board: GameState['board'];
+  captured: GameState['captured'];
+  gameStatus: GameState['gameStatus'];
+  isCheck: boolean;
+  lastMove: Move | null;
+};
+
+/**
  * 接続状態
  */
 export type ConnectionStatus =

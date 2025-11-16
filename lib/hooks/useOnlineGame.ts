@@ -18,7 +18,9 @@ import type {
   DrawAcceptEvent,
   DrawDeclineEvent,
   GameRow,
-  OnlineGameInfo
+  OnlineGameInfo,
+  RawBoardState,
+  BoardStateForDB
 } from '@/types/online-game';
 import type { Move, GameState, Player, Piece, Position, CapturablePieceType } from '@/types/shogi';
 import { isCapturablePieceType } from '@/types/shogi';
@@ -92,11 +94,14 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
       // GameStateの構築
       // DBから取得したboard_stateにはUI用のフィールド（promotionState等）が含まれていないため、
       // 明示的にデフォルト値を設定する
-      const rawBoardState = gameData.board_state as any;
+      const rawBoardState = gameData.board_state as RawBoardState;
 
       const boardState: GameState = {
         board: rawBoardState.board || [],
-        captured: rawBoardState.captured || { black: {}, white: {} },
+        captured: rawBoardState.captured || {
+          black: { rook: 0, bishop: 0, gold: 0, silver: 0, knight: 0, lance: 0, pawn: 0 },
+          white: { rook: 0, bishop: 0, gold: 0, silver: 0, knight: 0, lance: 0, pawn: 0 }
+        },
         currentTurn: (gameData.current_turn as Player) || 'black',
         moveHistory: gameData.moves as Move[] || [],
         gameStatus: rawBoardState.gameStatus || 'playing',
@@ -225,7 +230,7 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
       const newGameStatus = isNextPlayerInCheckmate ? 'checkmate' : 'playing';
 
       // 新しいボードステート
-      const newBoardState = {
+      const newBoardState: BoardStateForDB = {
         board: newBoard,
         captured: newCaptured,
         gameStatus: newGameStatus,
@@ -237,7 +242,7 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
       const { error: updateError } = await supabaseRef.current
         .from('games')
         .update({
-          board_state: newBoardState as any,
+          board_state: newBoardState,
           current_turn: nextPlayer,
           moves: newMoves,
           status: newGameStatus === 'checkmate' ? 'finished' : 'active',

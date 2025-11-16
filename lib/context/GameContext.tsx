@@ -53,6 +53,12 @@ export type GameContextType = {
   clearError: () => void;  // 詳細: エラーUI実装
   promote: () => void;  // #13: 成りを選択
   notPromote: () => void;  // #13: 成らないを選択
+
+  // Optional: オンラインゲーム用の情報（アダプターから提供される）
+  onlineInfo?: {
+    myPlayer: 'black' | 'white';
+    connectionStatus: string;
+  };
 };
 
 // ========================================

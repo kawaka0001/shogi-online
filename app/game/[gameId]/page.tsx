@@ -14,7 +14,7 @@ import { PromotionDialog } from '@/components/game/PromotionDialog';
 import { GameResult } from '@/components/game/GameResult';
 import { OnlineGameAdapter } from '@/lib/adapters/OnlineGameAdapter';
 import { useGame } from '@/lib/context/GameContext'; // 元のGameContextからインポート
-import { useOnlineGame } from '@/lib/hooks/useOnlineGame';
+import { useOnlineGame } from '@/lib/hooks/useOnlineGame'; // ページレベルでのみ使用
 import type { PieceType } from '@/types/shogi';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -92,55 +92,52 @@ function ErrorScreen({ message }: { message: string }) {
  */
 function OnlineGameContent({ gameId }: { gameId: string }) {
   // アダプターが提供するGameContext経由でゲーム状態を取得
-  const { gameState, resign, clearError, selectCapturedPiece, promote, notPromote } = useGame();
-
-  // オンライン情報取得用（接続状態、プレイヤー情報など）
-  const { gameState: onlineGameState, error } = useOnlineGame(gameId);
+  const { gameState, resign, clearError, selectCapturedPiece, promote, notPromote, onlineInfo } = useGame();
 
   // 持ち駒クリック処理（手番チェック付き）
   const handleBlackCapturedPieceClick = useCallback((pieceType: PieceType) => {
-    if (!onlineGameState || onlineGameState.myPlayer !== 'black') return;
+    if (!onlineInfo || onlineInfo.myPlayer !== 'black') return;
     if (gameState.currentTurn !== 'black') return;
     selectCapturedPiece(pieceType);
-  }, [gameState.currentTurn, selectCapturedPiece, onlineGameState]);
+  }, [gameState.currentTurn, selectCapturedPiece, onlineInfo]);
 
   const handleWhiteCapturedPieceClick = useCallback((pieceType: PieceType) => {
-    if (!onlineGameState || onlineGameState.myPlayer !== 'white') return;
+    if (!onlineInfo || onlineInfo.myPlayer !== 'white') return;
     if (gameState.currentTurn !== 'white') return;
     selectCapturedPiece(pieceType);
-  }, [gameState.currentTurn, selectCapturedPiece, onlineGameState]);
+  }, [gameState.currentTurn, selectCapturedPiece, onlineInfo]);
 
   // 選択中の持ち駒（自分の手番のみ）
   const blackSelectedPiece = useMemo(() => {
-    if (!onlineGameState || onlineGameState.myPlayer !== 'black') return undefined;
+    if (!onlineInfo || onlineInfo.myPlayer !== 'black') return undefined;
     return gameState.currentTurn === 'black'
       ? gameState.selectedCapturedPiece ?? undefined
       : undefined;
-  }, [gameState.currentTurn, gameState.selectedCapturedPiece, onlineGameState]);
+  }, [gameState.currentTurn, gameState.selectedCapturedPiece, onlineInfo]);
 
   const whiteSelectedPiece = useMemo(() => {
-    if (!onlineGameState || onlineGameState.myPlayer !== 'white') return undefined;
+    if (!onlineInfo || onlineInfo.myPlayer !== 'white') return undefined;
     return gameState.currentTurn === 'white'
       ? gameState.selectedCapturedPiece ?? undefined
       : undefined;
-  }, [gameState.currentTurn, gameState.selectedCapturedPiece, onlineGameState]);
+  }, [gameState.currentTurn, gameState.selectedCapturedPiece, onlineInfo]);
 
   // 投了ハンドラ（確認付き）
   const handleResign = useCallback(() => {
-    if (!onlineGameState) return;
-    const confirmMessage = onlineGameState.myPlayer === 'black'
+    if (!onlineInfo) return;
+    const confirmMessage = onlineInfo.myPlayer === 'black'
       ? '先手として投了しますか？'
       : '後手として投了しますか？';
 
     if (window.confirm(confirmMessage)) {
       resign();
     }
-  }, [resign, onlineGameState]);
+  }, [resign, onlineInfo]);
 
   // 手番表示
   const getTurnMessage = () => {
-    if (!onlineGameState) return '';
-    const isMyTurn = gameState.currentTurn === onlineGameState.myPlayer;
+    if (!onlineInfo) return '';
+    const isMyTurn = gameState.currentTurn === onlineInfo.myPlayer;
     const turnPlayerName = gameState.currentTurn === 'black' ? '先手' : '後手';
     return isMyTurn ? `あなたの手番（${turnPlayerName}）` : `相手の手番（${turnPlayerName}）`;
   };
@@ -148,8 +145,8 @@ function OnlineGameContent({ gameId }: { gameId: string }) {
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 py-3 sm:py-4 md:py-6 lg:py-8">
       {/* 接続状態インジケーター */}
-      {onlineGameState && (
-        <ConnectionStatusIndicator status={onlineGameState.connectionStatus} />
+      {onlineInfo && (
+        <ConnectionStatusIndicator status={onlineInfo.connectionStatus} />
       )}
 
       {/* ヘッダーナビゲーション - 右上固定 */}
@@ -188,7 +185,7 @@ function OnlineGameContent({ gameId }: { gameId: string }) {
             オンライン対戦
           </h1>
           <p className="text-sm sm:text-base md:text-lg text-slate-600 dark:text-slate-400 font-medium">
-            {onlineGameState && `あなた: ${onlineGameState.myPlayer === 'black' ? '先手' : '後手'}`}
+            {onlineInfo && `あなた: ${onlineInfo.myPlayer === 'black' ? '先手' : '後手'}`}
           </p>
         </div>
 
@@ -201,7 +198,7 @@ function OnlineGameContent({ gameId }: { gameId: string }) {
           </div>
 
           {/* 投了ボタン */}
-          {onlineGameState && gameState.gameStatus === 'playing' && (
+          {onlineInfo && gameState.gameStatus === 'playing' && (
             <button
               onClick={handleResign}
               className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium shadow-soft hover:shadow-medium"

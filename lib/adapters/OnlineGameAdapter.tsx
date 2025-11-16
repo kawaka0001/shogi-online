@@ -335,13 +335,18 @@ export function OnlineGameAdapter({
     clearError,
     promote,
     notPromote,
+    // オンライン情報を追加
+    onlineInfo: onlineGameState ? {
+      myPlayer: onlineGameState.myPlayer,
+      connectionStatus: onlineGameState.connectionStatus,
+    } : undefined,
     // 以下はアダプターでは使用しないが、型を満たすためにダミー実装
     dispatch: () => {},
     movePiece: () => {},
     dropPiece: () => {},
     deselect: () => {},
     undo: () => {},
-  }), [gameState, selectSquare, selectCapturedPiece, newGame, resign, clearError, promote, notPromote]);
+  }), [gameState, onlineGameState, selectSquare, selectCapturedPiece, newGame, resign, clearError, promote, notPromote]);
 
   // ローディング中やエラー時はnullを返す（親コンポーネントでハンドリング）
   // 全てのフック呼び出しの後に配置
