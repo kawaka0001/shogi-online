@@ -475,6 +475,14 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
   }, []);
 
   /**
+   * 初回データ取得（currentUserIdが設定されたタイミング）
+   */
+  useEffect(() => {
+    if (!gameId || !currentUserId) return;
+    fetchGameData();
+  }, [gameId, currentUserId, fetchGameData]);
+
+  /**
    * Realtime Channelのセットアップ
    */
   useEffect(() => {
@@ -567,9 +575,6 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
     });
 
     channelRef.current = channel;
-
-    // 初期データの取得
-    fetchGameData();
 
     // クリーンアップ
     return () => {
