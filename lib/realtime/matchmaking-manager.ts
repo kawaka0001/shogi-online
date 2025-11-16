@@ -199,15 +199,19 @@ export class MatchmakingManager {
       const state = this.channel.presenceState<PlayerPresence>();
       console.log('[MatchmakingManager] Presence同期:', state);
 
-      // 全プレイヤーを取得（自分を除く）
-      const allPlayers = this.getAllPlayers(state);
-      console.log('[MatchmakingManager] 待機中のプレイヤー:', allPlayers);
+      // UI表示用: 全プレイヤー（自分を含む）
+      const allPlayersIncludingSelf = this.getAllPlayersIncludingSelf(state);
+      console.log('[MatchmakingManager] 全プレイヤー（自分含む）:', allPlayersIncludingSelf);
 
-      // 状態変更コールバック
-      this.callbacks.onStateChange?.(allPlayers);
+      // 状態変更コールバック（UI表示用）
+      this.callbacks.onStateChange?.(allPlayersIncludingSelf);
+
+      // マッチングロジック用: 対戦相手候補のみ（自分を除く）
+      const opponentCandidates = this.getOpponentCandidates(state);
+      console.log('[MatchmakingManager] 対戦相手候補:', opponentCandidates);
 
       // マッチング判定
-      this.findOpponent(allPlayers);
+      this.findOpponent(opponentCandidates);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       console.error('[MatchmakingManager] handleSync()エラー:', err);
@@ -229,13 +233,18 @@ export class MatchmakingManager {
       });
 
       const state = this.channel.presenceState<PlayerPresence>();
-      const allPlayers = this.getAllPlayers(state);
 
-      // 状態変更コールバック
-      this.callbacks.onStateChange?.(allPlayers);
+      // UI表示用: 全プレイヤー（自分を含む）
+      const allPlayersIncludingSelf = this.getAllPlayersIncludingSelf(state);
+
+      // 状態変更コールバック（UI表示用）
+      this.callbacks.onStateChange?.(allPlayersIncludingSelf);
+
+      // マッチングロジック用: 対戦相手候補のみ（自分を除く）
+      const opponentCandidates = this.getOpponentCandidates(state);
 
       // マッチング判定
-      this.findOpponent(allPlayers);
+      this.findOpponent(opponentCandidates);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       console.error('[MatchmakingManager] handleJoin()エラー:', err);
@@ -257,10 +266,12 @@ export class MatchmakingManager {
       });
 
       const state = this.channel.presenceState<PlayerPresence>();
-      const allPlayers = this.getAllPlayers(state);
 
-      // 状態変更コールバック
-      this.callbacks.onStateChange?.(allPlayers);
+      // UI表示用: 全プレイヤー（自分を含む）
+      const allPlayersIncludingSelf = this.getAllPlayersIncludingSelf(state);
+
+      // 状態変更コールバック（UI表示用）
+      this.callbacks.onStateChange?.(allPlayersIncludingSelf);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       console.error('[MatchmakingManager] handleLeave()エラー:', err);
@@ -333,14 +344,13 @@ export class MatchmakingManager {
    * 対戦相手を検索してマッチングを試みる
    *
    * マッチング条件:
-   * 1. 自分以外のプレイヤー
-   * 2. status = 'searching'
-   * 3. スキルレベル差が±200以内
-   * 4. タイムスタンプ（joinedAt）が最も早い相手（FIFO）
+   * 1. status = 'searching'
+   * 2. スキルレベル差が±200以内
+   * 3. タイムスタンプ（joinedAt）が最も早い相手（FIFO）
    *
-   * @param players - 待機中の全プレイヤー
+   * @param opponentCandidates - 対戦相手候補（自分を除く）
    */
-  private async findOpponent(players: PlayerPresence[]): Promise<void> {
+  private async findOpponent(opponentCandidates: PlayerPresence[]): Promise<void> {
     // 既にマッチング済み、または処理中の場合はスキップ
     if (this.isMatched || this.matchingLock) {
       console.log('[MatchmakingManager] マッチング処理スキップ（既に処理中）');
@@ -351,10 +361,7 @@ export class MatchmakingManager {
       this.matchingLock = true; // ロック取得
 
       // マッチング候補をフィルタリング
-      const candidates = players.filter((player) => {
-        // 自分を除外
-        if (player.userId === this.userId) return false;
-
+      const candidates = opponentCandidates.filter((player) => {
         // status = 'searching' のみ
         if (player.status !== 'searching') return false;
 
@@ -491,11 +498,34 @@ export class MatchmakingManager {
 
   /**
    * Presence Stateから全プレイヤーを取得（自分を含む）
+   * UI表示用（「現在 X 人が待機中です」の表示に使用）
    *
    * @param state - Presenceの状態オブジェクト
-   * @returns 全プレイヤーのPresence情報の配列
+   * @returns 全プレイヤーのPresence情報の配列（自分を含む）
    */
-  private getAllPlayers(
+  private getAllPlayersIncludingSelf(
+    state: Record<string, PlayerPresence[]>
+  ): PlayerPresence[] {
+    const players: PlayerPresence[] = [];
+
+    Object.entries(state).forEach(([key, presences]) => {
+      // 複数デバイスからのアクセスに対応（最初のPresenceのみ使用）
+      if (presences.length > 0) {
+        players.push(presences[0]);
+      }
+    });
+
+    return players;
+  }
+
+  /**
+   * Presence Stateから対戦相手候補を取得（自分を除く）
+   * マッチングロジック用（対戦相手の検索に使用）
+   *
+   * @param state - Presenceの状態オブジェクト
+   * @returns 対戦相手候補のPresence情報の配列（自分を除く）
+   */
+  private getOpponentCandidates(
     state: Record<string, PlayerPresence[]>
   ): PlayerPresence[] {
     const players: PlayerPresence[] = [];
@@ -504,8 +534,10 @@ export class MatchmakingManager {
       // 複数デバイスからのアクセスに対応（最初のPresenceのみ使用）
       if (presences.length > 0) {
         const player = presences[0];
-        // 全プレイヤーを含める（UI表示用）
-        players.push(player);
+        // 自分を除外（マッチング対象外）
+        if (player.userId !== this.userId) {
+          players.push(player);
+        }
       }
     });
 
