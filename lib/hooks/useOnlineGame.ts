@@ -460,10 +460,11 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
 
     // クリーンアップ
     return () => {
-      const supabase = supabaseRef.current;
       const channel = channelRef.current;
 
-      if (channel && supabase) {
+      if (channel) {
+        // supabaseRef.currentを直接使用せず、ローカルコピーを使う
+        const supabase = createClient();
         supabase.removeChannel(channel);
         channelRef.current = null;
       }
