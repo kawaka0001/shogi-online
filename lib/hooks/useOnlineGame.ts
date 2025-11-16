@@ -519,8 +519,73 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
           return;
         }
 
-        // ゲームデータを再取得して同期
-        fetchGameData();
+        // イベントデータから直接状態を更新（DB再取得を回避）
+        // 詳細: #58 Warning #4 - ネットワーク効率改善
+        setGameState((prev) => {
+          if (!prev) return null;
+
+          const move = moveEvent.move;
+          const newBoard = prev.board.map(row => [...row]);
+          const newCaptured = { ...prev.captured };
+
+          // 駒を打つ場合
+          if (move.type === 'drop' && isCapturablePieceType(move.piece)) {
+            // 持ち駒を減らす（相手の持ち駒）
+            const opponentPlayer = moveEvent.player;
+            newCaptured[opponentPlayer] = {
+              ...newCaptured[opponentPlayer],
+              [move.piece]: newCaptured[opponentPlayer][move.piece] - 1
+            };
+
+            // 盤面に駒を配置
+            newBoard[move.to.rank][move.to.file] = {
+              type: move.piece,
+              owner: opponentPlayer,
+              isPromoted: false
+            };
+          } else if (move.from) {
+            // 駒を移動する場合
+            const movingPiece = newBoard[move.from.rank][move.from.file];
+            if (!movingPiece) {
+              console.error('移動元に駒がありません');
+              return prev;
+            }
+
+            // 駒を取る場合
+            if (move.capturedPiece && isCapturablePieceType(move.capturedPiece)) {
+              // 成った駒は元の駒として持ち駒になる（相手が取る）
+              newCaptured[moveEvent.player] = {
+                ...newCaptured[moveEvent.player],
+                [move.capturedPiece]: newCaptured[moveEvent.player][move.capturedPiece] + 1
+              };
+            }
+
+            // 駒を移動
+            newBoard[move.to.rank][move.to.file] = {
+              ...movingPiece,
+              isPromoted: movingPiece.isPromoted || move.shouldPromote
+            };
+            newBoard[move.from.rank][move.from.file] = null;
+          }
+
+          // 次のプレイヤー（相手が指したので、次は自分）
+          const nextPlayer: Player = moveEvent.player === 'black' ? 'white' : 'black';
+
+          // 詰みチェック
+          const isNextPlayerInCheckmate = isCheckmate(newBoard, nextPlayer);
+          const newGameStatus = isNextPlayerInCheckmate ? 'checkmate' : 'playing';
+
+          return {
+            ...prev,
+            board: newBoard,
+            captured: newCaptured,
+            currentTurn: nextPlayer,
+            moveHistory: [...prev.moveHistory, move],
+            gameStatus: newGameStatus,
+            lastMove: move,
+            lastSyncTime: new Date(),
+          };
+        });
       });
 
       // 投了イベントの処理
