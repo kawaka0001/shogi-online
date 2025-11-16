@@ -3,6 +3,7 @@
  * 詳細: #4, #8, #10, #13, #17
  */
 
+import { produce } from 'immer'; // #58: 盤面コピー最適化
 import type { Board, Piece, Player, Position, PieceType } from '@/types/shogi';
 import { isValidPosition } from '../utils/position';
 import { validateDrop as validateDropIllegal, isNifu } from './validation'; // #14: 二歩判定を統一
@@ -847,13 +848,17 @@ export function isInCheck(board: Board, player: Player): boolean {
 
 /**
  * 指定されたプレイヤーが詰んでいるかチェック
- * 詳細: #17
+ * 詳細: #17, #58
  *
  * 詰みの条件:
  * 1. 王手されている
  * 2. 玉が逃げられない
  * 3. 王手している駒を取れない
  * 4. 王手を他の駒で遮れない
+ *
+ * パフォーマンス最適化 (#58):
+ * - Immerのproduceを使用し、変更がない行の参照を使い回す
+ * - 盤面全体のコピーを避け、変更部分のみコピー
  *
  * @param board - 現在の盤面
  * @param player - チェックするプレイヤー
@@ -875,13 +880,13 @@ export function isCheckmate(board: Board, player: Player): boolean {
 
         // 各移動可能な手をシミュレート
         for (const to of moves) {
-          // 一時的に盤面をコピーして手を試す
-          const testBoard = board.map(row => [...row]);
-          const capturedPiece = testBoard[to.rank][to.file];
-
-          // 駒を移動
-          testBoard[to.rank][to.file] = piece;
-          testBoard[from.rank][from.file] = null;
+          // 一時的に盤面をコピーして手を試す（Immerで最適化）
+          // 変更がない行は参照を使い回すため、メモリ効率が向上
+          const testBoard = produce(board, draft => {
+            // 駒を移動
+            draft[to.rank][to.file] = piece;
+            draft[from.rank][from.file] = null;
+          });
 
           // この手で王手が解除されるかチェック
           if (!isInCheck(testBoard, player)) {
