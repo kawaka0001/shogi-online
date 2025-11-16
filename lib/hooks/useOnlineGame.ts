@@ -462,10 +462,23 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
   }, [gameState, handleError]);
 
   /**
+   * ユーザーIDの取得（一度だけ実行）
+   */
+  useEffect(() => {
+    const initializeUser = async () => {
+      const { data: { user } } = await supabaseRef.current.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    initializeUser();
+  }, []);
+
+  /**
    * Realtime Channelのセットアップ
    */
   useEffect(() => {
-    if (!gameId) return;
+    if (!gameId || !currentUserId) return;
 
     // チャンネルの作成と購読
     const channel = supabaseRef.current.channel(`game:${gameId}`);
@@ -570,7 +583,7 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameId, currentUserId]);
+  }, [gameId]);
 
   return {
     gameState,
