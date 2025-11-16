@@ -20,7 +20,9 @@ import type {
   GameRow,
   OnlineGameInfo
 } from '@/types/online-game';
-import type { Move, GameState, Player } from '@/types/shogi';
+import type { Move, GameState, Player, Piece, Position, CapturablePieceType } from '@/types/shogi';
+import { isCapturablePieceType } from '@/types/shogi';
+import { isCheckmate } from '@/lib/game/rules';
 
 export function useOnlineGame(gameId: string): UseOnlineGameReturn {
   // 状態管理
@@ -28,6 +30,7 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<OnlineGameError | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Refs
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -82,6 +85,9 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
       // プレイヤーの立場を判定
       const myPlayer: Player = gameData.black_player_id === user.id ? 'black' : 'white';
       const opponentId = myPlayer === 'black' ? gameData.white_player_id : gameData.black_player_id;
+
+      // ユーザーIDを保存
+      setCurrentUserId(user.id);
 
       // GameStateの構築
       // DBから取得したboard_stateにはUI用のフィールド（promotionState等）が含まれていないため、
@@ -168,7 +174,84 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
         timestamp: new Date().toISOString()
       };
 
-      // Realtimeで指し手をブロードキャスト
+      // ゲーム状態の更新（ローカル）
+      const newBoard = gameState.board.map(row => [...row]);
+      const newCaptured = { ...gameState.captured };
+      const newMoves = [...gameState.moveHistory, move];
+
+      // 駒を打つ場合
+      if (move.type === 'drop' && isCapturablePieceType(move.piece)) {
+        // 持ち駒を減らす
+        newCaptured[gameState.myPlayer] = {
+          ...newCaptured[gameState.myPlayer],
+          [move.piece]: newCaptured[gameState.myPlayer][move.piece] - 1
+        };
+
+        // 盤面に駒を配置
+        newBoard[move.to.rank][move.to.file] = {
+          type: move.piece,
+          owner: gameState.myPlayer,
+          isPromoted: false
+        };
+      } else if (move.from) {
+        // 駒を移動する場合
+        const movingPiece = newBoard[move.from.rank][move.from.file];
+        if (!movingPiece) {
+          throw new Error('移動元に駒がありません');
+        }
+
+        // 駒を取る場合
+        if (move.capturedPiece && isCapturablePieceType(move.capturedPiece)) {
+          // 成った駒は元の駒として持ち駒になる
+          newCaptured[gameState.myPlayer] = {
+            ...newCaptured[gameState.myPlayer],
+            [move.capturedPiece]: newCaptured[gameState.myPlayer][move.capturedPiece] + 1
+          };
+        }
+
+        // 駒を移動
+        newBoard[move.to.rank][move.to.file] = {
+          ...movingPiece,
+          isPromoted: movingPiece.isPromoted || move.shouldPromote
+        };
+        newBoard[move.from.rank][move.from.file] = null;
+      }
+
+      // 次のプレイヤー
+      const nextPlayer: Player = gameState.myPlayer === 'black' ? 'white' : 'black';
+
+      // 詰みチェック
+      const isNextPlayerInCheckmate = isCheckmate(newBoard, nextPlayer);
+      const newGameStatus = isNextPlayerInCheckmate ? 'checkmate' : 'playing';
+
+      // 新しいボードステート
+      const newBoardState = {
+        board: newBoard,
+        captured: newCaptured,
+        gameStatus: newGameStatus,
+        isCheck: false, // TODO: 王手チェック
+        lastMove: move,
+      };
+
+      // DBの更新
+      const { error: updateError } = await supabaseRef.current
+        .from('games')
+        .update({
+          board_state: newBoardState as any,
+          current_turn: nextPlayer,
+          moves: newMoves,
+          status: newGameStatus === 'checkmate' ? 'finished' : 'active',
+          winner_id: newGameStatus === 'checkmate' ? user.id : null,
+          finished_at: newGameStatus === 'checkmate' ? new Date().toISOString() : null
+        })
+        .eq('id', gameId);
+
+      if (updateError) {
+        handleError('sync_failed', 'ゲーム状態の更新に失敗しました', updateError);
+        throw updateError;
+      }
+
+      // Realtimeで指し手をブロードキャスト（DB更新後）
       if (channelRef.current) {
         await channelRef.current.send({
           type: 'broadcast',
@@ -177,14 +260,25 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
         });
       }
 
-      // TODO: ゲーム状態の更新とDB保存
-      // この部分は別途ゲームロジックと連携して実装
+      // ローカル状態を更新
+      setGameState(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          board: newBoard,
+          captured: newCaptured,
+          currentTurn: nextPlayer,
+          moveHistory: newMoves,
+          gameStatus: newGameStatus,
+          lastMove: move,
+        };
+      });
 
     } catch (err) {
       handleError('sync_failed', '指し手の送信に失敗しました', err);
       throw err;
     }
-  }, [gameState, handleError]);
+  }, [gameState, gameId, handleError]);
 
   /**
    * 投了処理
@@ -381,8 +475,14 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
       const moveEvent = payload.payload as MoveEvent;
       console.log('Received move:', moveEvent);
 
-      // TODO: ゲーム状態の更新処理
-      // この部分は別途ゲームロジックと連携して実装
+      // 相手の指し手の場合のみ処理（自分の指し手は既にローカル更新済み）
+      if (moveEvent.playerId === currentUserId) {
+        console.log('Skipping own move');
+        return;
+      }
+
+      // ゲームデータを再取得して同期
+      fetchGameData();
     });
 
     // 投了イベントの処理
@@ -470,7 +570,7 @@ export function useOnlineGame(gameId: string): UseOnlineGameReturn {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameId]);
+  }, [gameId, currentUserId]);
 
   return {
     gameState,
