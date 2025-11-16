@@ -28,6 +28,20 @@ export type PieceType =
   | 'pawn';   // 歩
 
 /**
+ * 成ることができる駒の型（玉と金を除く）
+ * 詳細: #18
+ */
+export type PromotablePieceType = Exclude<PieceType, 'king' | 'gold'>;
+
+/**
+ * 型ガード関数: PieceTypeがPromotablePieceTypeかどうかを判定
+ * 詳細: #18
+ */
+export function isPromotablePieceType(type: PieceType): type is PromotablePieceType {
+  return type !== 'king' && type !== 'gold';
+}
+
+/**
  * 駒の情報
  */
 export type Piece = {
@@ -159,6 +173,7 @@ export type PromotionState = {
 
 /**
  * ゲーム全体の状態
+ * 詳細: #18
  */
 export type GameState = {
   board: Board;
@@ -169,7 +184,7 @@ export type GameState = {
   isCheck: boolean;
   selectedPosition: Position | null;
   validMoves: Position[];
-  selectedCapturedPiece: PieceType | null;  // #12: 選択中の持ち駒
+  selectedCapturedPiece: PieceType | null | undefined;  // #12, #18: 選択中の持ち駒（nullとundefinedの両方を許容）
   lastMove: Move | null;
   errorMessage: string | null;  // 詳細: エラーUI実装
   promotionState: PromotionState;  // #13: 成り判定ダイアログの状態
@@ -263,11 +278,12 @@ export type PieceProps = {
 
 /**
  * CapturedPiecesコンポーネントのprops
+ * 詳細: #18
  */
 export type CapturedPiecesProps = {
   player: Player;
   pieces: PlayerCapturedPieces;
-  selectedPiece?: PieceType | null;  // #11: 選択中の持ち駒
+  selectedPiece?: PieceType;  // #11: 選択中の持ち駒（undefinedのみで表現）
   onPieceClick?: (pieceType: PieceType) => void;
 };
 

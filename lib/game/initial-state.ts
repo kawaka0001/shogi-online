@@ -57,8 +57,8 @@ export function createInitialBoard(): Board {
   board[0][8] = { type: 'lance', owner: 'white', isPromoted: false };
 
   // 2段目（インデックス1）
-  board[1][1] = { type: 'bishop', owner: 'white', isPromoted: false };
-  board[1][7] = { type: 'rook', owner: 'white', isPromoted: false };
+  board[1][7] = { type: 'bishop', owner: 'white', isPromoted: false };
+  board[1][1] = { type: 'rook', owner: 'white', isPromoted: false };
 
   // 3段目（インデックス2）- 歩
   for (let file = 0; file < BOARD_SIZE; file++) {
@@ -72,8 +72,8 @@ export function createInitialBoard(): Board {
   }
 
   // 8段目（インデックス7）
-  board[7][1] = { type: 'rook', owner: 'black', isPromoted: false };
-  board[7][7] = { type: 'bishop', owner: 'black', isPromoted: false };
+  board[7][7] = { type: 'rook', owner: 'black', isPromoted: false };
+  board[7][1] = { type: 'bishop', owner: 'black', isPromoted: false };
 
   // 9段目（インデックス8）
   board[8][0] = { type: 'lance', owner: 'black', isPromoted: false };

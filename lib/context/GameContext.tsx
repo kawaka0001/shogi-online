@@ -37,7 +37,7 @@ type GameAction =
 // Context Type
 // ========================================
 
-type GameContextType = {
+export type GameContextType = {
   gameState: GameState;
   dispatch: React.Dispatch<GameAction>;
 
@@ -53,6 +53,17 @@ type GameContextType = {
   clearError: () => void;  // 詳細: エラーUI実装
   promote: () => void;  // #13: 成りを選択
   notPromote: () => void;  // #13: 成らないを選択
+
+  // Optional: オンラインゲーム用の情報（アダプターから提供される）
+  onlineInfo?: {
+    myPlayer: 'black' | 'white';
+    connectionStatus: string;
+  };
+
+  // Optional: オンライン対戦用の引き分け機能（#58）
+  acceptDraw?: () => void;
+  declineDraw?: () => void;
+  offerDraw?: () => void;
 };
 
 // ========================================
@@ -490,6 +501,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 // ========================================
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
+
+// OnlineGameAdapterで使用するためにエクスポート
+export { GameContext };
 
 // ========================================
 // Provider
