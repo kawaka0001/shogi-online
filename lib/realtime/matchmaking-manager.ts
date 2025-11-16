@@ -490,7 +490,7 @@ export class MatchmakingManager {
   }
 
   /**
-   * Presence Stateから全プレイヤーを取得（自分を除く）
+   * Presence Stateから全プレイヤーを取得（自分を含む）
    *
    * @param state - Presenceの状態オブジェクト
    * @returns 全プレイヤーのPresence情報の配列
@@ -504,10 +504,8 @@ export class MatchmakingManager {
       // 複数デバイスからのアクセスに対応（最初のPresenceのみ使用）
       if (presences.length > 0) {
         const player = presences[0];
-        // 自分を除外
-        if (player.userId !== this.userId) {
-          players.push(player);
-        }
+        // 全プレイヤーを含める（UI表示用）
+        players.push(player);
       }
     });
 
