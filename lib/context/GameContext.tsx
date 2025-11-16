@@ -37,7 +37,7 @@ type GameAction =
 // Context Type
 // ========================================
 
-type GameContextType = {
+export type GameContextType = {
   gameState: GameState;
   dispatch: React.Dispatch<GameAction>;
 
@@ -490,6 +490,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 // ========================================
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
+
+// OnlineGameAdapterで使用するためにエクスポート
+export { GameContext };
 
 // ========================================
 // Provider

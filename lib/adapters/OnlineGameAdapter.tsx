@@ -7,24 +7,11 @@
 
 'use client';
 
-import { createContext, useContext, useCallback, useMemo, ReactNode, useState } from 'react';
+import { useCallback, useMemo, ReactNode, useState } from 'react';
 import { useOnlineGame } from '@/lib/hooks/useOnlineGame';
 import type { GameState, Position, PieceType } from '@/types/shogi';
-import type { UseOnlineGameReturn } from '@/types/online-game';
-
-// GameContextと同じインターフェース
-type GameContextType = {
-  gameState: GameState;
-  selectSquare: (position: Position) => void;
-  selectCapturedPiece: (pieceType: PieceType) => void;
-  newGame: () => void;
-  resign: () => void;
-  clearError: () => void;
-  promote: () => void;
-  notPromote: () => void;
-};
-
-const GameContext = createContext<GameContextType | undefined>(undefined);
+// 元のGameContextをインポート（新しいContextを作らない）
+import { GameContext, type GameContextType } from '@/lib/context/GameContext';
 
 export function OnlineGameAdapter({
   gameId,
@@ -167,7 +154,8 @@ export function OnlineGameAdapter({
     };
   }, [onlineGameState, selectedPosition, validMoves, selectedCapturedPiece, promotionPending]);
 
-  const value: GameContextType = useMemo(() => ({
+  // GameContextTypeの部分的な実装（dispatchは不要）
+  const value = useMemo(() => ({
     gameState,
     selectSquare,
     selectCapturedPiece,
@@ -176,6 +164,12 @@ export function OnlineGameAdapter({
     clearError,
     promote,
     notPromote,
+    // 以下はアダプターでは使用しないが、型を満たすためにダミー実装
+    dispatch: () => {},
+    movePiece: () => {},
+    dropPiece: () => {},
+    deselect: () => {},
+    undo: () => {},
   }), [gameState, selectSquare, selectCapturedPiece, newGame, resign, clearError, promote, notPromote]);
 
   // ローディング中やエラー時はnullを返す（親コンポーネントでハンドリング）
@@ -191,11 +185,4 @@ export function OnlineGameAdapter({
   );
 }
 
-// useGameと同じインターフェースのフック
-export function useGame(): GameContextType {
-  const context = useContext(GameContext);
-  if (context === undefined) {
-    throw new Error('useGame must be used within OnlineGameAdapter');
-  }
-  return context;
-}
+// useGameはGameContext.tsxのものを使用するため、ここではエクスポートしない

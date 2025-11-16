@@ -12,7 +12,8 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { PromotionDialog } from '@/components/game/PromotionDialog';
 import { GameResult } from '@/components/game/GameResult';
-import { OnlineGameAdapter, useGame } from '@/lib/adapters/OnlineGameAdapter';
+import { OnlineGameAdapter } from '@/lib/adapters/OnlineGameAdapter';
+import { useGame } from '@/lib/context/GameContext'; // 元のGameContextからインポート
 import { useOnlineGame } from '@/lib/hooks/useOnlineGame';
 import type { PieceType } from '@/types/shogi';
 import Link from 'next/link';
